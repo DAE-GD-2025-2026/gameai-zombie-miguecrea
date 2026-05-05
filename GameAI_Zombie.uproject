@@ -33,6 +33,13 @@
 		{
 			"Name": "ModularGameplay",
 			"Enabled": true
+		},
+		{
+			"Name": "LozanoMiguelZombie",
+			"Enabled": true
 		}
+
+
+
 	]
 }
