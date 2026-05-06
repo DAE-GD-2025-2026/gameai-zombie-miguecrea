@@ -2,6 +2,7 @@
 
 
 #include "StudentPerceptor.h"
+#include "Survivor/SurvivorPawn.h"
 
 UStudentPerceptor::UStudentPerceptor()
 {
@@ -15,7 +16,7 @@ void UStudentPerceptor::BeginPlay()
 	//this component get added at runtime 
 	
 	
-	 //m_SurvivorPawn =  Cast<ASurvivorPawn>(this->GetOwner());
+	m_SurvivorPawn = Cast<ASurvivorPawn>(GetOwner());
 	
 	UE_LOG(LogTemp,Warning,TEXT("Hello"))
 	if (auto PerceptionComp = GetOwner()->GetComponentByClass<UAIPerceptionComponent>())
