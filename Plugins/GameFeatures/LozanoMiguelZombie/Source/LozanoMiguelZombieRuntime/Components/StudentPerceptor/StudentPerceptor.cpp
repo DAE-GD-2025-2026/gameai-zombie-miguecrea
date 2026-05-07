@@ -23,6 +23,13 @@ void UStudentPerceptor::BeginPlay()
 	{
 		PerceptionComp->OnTargetPerceptionUpdated.AddDynamic(this, &UStudentPerceptor::OnPerceptionUpdated);
 	}
+	
+	
+	//In case I want 
+	// PrimaryComponentTick.AddPrerequisite(
+	// 	Perception,
+	// 	Perception->PrimaryComponentTick
+	// );
 }
 
 

@@ -4,17 +4,17 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
-#include "MemoryComponent.generated.h"
+#include "BlackBoard.generated.h"
 
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
-class LOZANOMIGUELZOMBIERUNTIME_API UMemoryComponent : public UActorComponent
+class LOZANOMIGUELZOMBIERUNTIME_API UBlackBoard : public UActorComponent
 {
 	GENERATED_BODY()
 
 public:
 	// Sets default values for this component's properties
-	UMemoryComponent();
+	UBlackBoard();
 
 protected:
 	// Called when the game starts
@@ -23,5 +23,5 @@ protected:
 public:
 	// Called every frame
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType,
-	                           FActorComponentTickFunction * ThisTickFunction) override;
+	                           FActorComponentTickFunction* ThisTickFunction) override;
 };
