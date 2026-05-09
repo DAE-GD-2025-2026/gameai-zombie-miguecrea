@@ -21,9 +21,9 @@ void UFSMComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 	if (!CurrentState)
 		return;
 
-	AActor* Owner = GetOwner();
+	AActor * Owner = GetOwner();
 
-	for (const FStateTransition& T : Transitions)
+	for (const FStateTransition & T : Transitions)
 	{
 		if (T.From == CurrentStateTag && T.Condition(Owner))
 		{

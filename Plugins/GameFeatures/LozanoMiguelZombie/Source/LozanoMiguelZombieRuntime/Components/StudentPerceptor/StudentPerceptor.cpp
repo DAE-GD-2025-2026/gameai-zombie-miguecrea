@@ -18,7 +18,6 @@ void UStudentPerceptor::BeginPlay()
 	
 	m_SurvivorPawn = Cast<ASurvivorPawn>(GetOwner());
 	
-	UE_LOG(LogTemp,Warning,TEXT("Hello"))
 	if (auto PerceptionComp = GetOwner()->GetComponentByClass<UAIPerceptionComponent>())
 	{
 		PerceptionComp->OnTargetPerceptionUpdated.AddDynamic(this, &UStudentPerceptor::OnPerceptionUpdated);
@@ -46,6 +45,5 @@ void UStudentPerceptor::OnPerceptionUpdated(AActor * Actor,FAIStimulus Stimulus)
 	 //House 
 	
 	//Zombie 
-	UE_LOG(LogTemp, Warning, TEXT("Saw Something %s"), *Actor->GetName())
 
 }

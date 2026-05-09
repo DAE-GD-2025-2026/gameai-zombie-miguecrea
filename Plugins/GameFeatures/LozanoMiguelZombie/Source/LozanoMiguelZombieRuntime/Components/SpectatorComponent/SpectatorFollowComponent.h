@@ -4,24 +4,24 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
-#include "SteeringComponent.generated.h"
+#include "SpectatorFollowComponent.generated.h"
 
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
-class LOZANOMIGUELZOMBIERUNTIME_API USteeringComponent : public UActorComponent
+class LOZANOMIGUELZOMBIERUNTIME_API USpectatorFollowComponent : public UActorComponent
 {
 	GENERATED_BODY()
 
 public:
 	// Sets default values for this component's properties
-	USteeringComponent();
+	USpectatorFollowComponent();
 
 protected:
+	// Called when the game starts
 	virtual void BeginPlay() override;
-	
-	class ASurvivorAIController * m_AIController;
 
 public:
+	// Called every frame
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType,
 	                           FActorComponentTickFunction* ThisTickFunction) override;
 };

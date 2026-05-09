@@ -18,7 +18,6 @@ UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class LOZANOMIGUELZOMBIERUNTIME_API UFSMComponent : public UActorComponent
 {
 	GENERATED_BODY()
-
 public:
 	UFSMComponent();
 

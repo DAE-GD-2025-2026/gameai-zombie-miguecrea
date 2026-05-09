@@ -39,7 +39,9 @@ public class LozanoMiguelZombieRuntime : ModuleRules
 				"Slate",
 				"SlateCore",
 				"AIModule",
-				"GameAI_Zombie"
+				"GameAI_Zombie",
+				"GameplayTags",
+				"NavigationSystem"  
 				// ... add private dependencies that you statically link with here ...
 			}
 			);
