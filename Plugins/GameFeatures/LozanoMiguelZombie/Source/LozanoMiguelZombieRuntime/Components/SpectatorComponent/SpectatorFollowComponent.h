@@ -19,6 +19,12 @@ public:
 protected:
 	// Called when the game starts
 	virtual void BeginPlay() override;
+	
+	void CheckParent();
+	
+	AActor * m_Owner;
+	AActor * m_FollowPawn;
+	bool m_Detached = false;
 
 public:
 	// Called every frame

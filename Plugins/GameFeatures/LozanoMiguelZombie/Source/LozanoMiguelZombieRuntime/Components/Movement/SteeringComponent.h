@@ -20,6 +20,8 @@ protected:
 	virtual void BeginPlay() override;
 	
 	class ASurvivorAIController * m_AIController;
+	
+	APawn * pawn;
 
 public:
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType,
