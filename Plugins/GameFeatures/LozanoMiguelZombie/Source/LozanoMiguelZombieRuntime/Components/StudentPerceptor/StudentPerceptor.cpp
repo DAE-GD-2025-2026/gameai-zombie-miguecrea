@@ -12,17 +12,12 @@ UStudentPerceptor::UStudentPerceptor()
 void UStudentPerceptor::BeginPlay()
 {
 	Super::BeginPlay();
-
-	//this component get added at runtime 
-	
-	
 	m_SurvivorPawn = Cast<ASurvivorPawn>(GetOwner());
 	
 	if (auto PerceptionComp = GetOwner()->GetComponentByClass<UAIPerceptionComponent>())
 	{
 		PerceptionComp->OnTargetPerceptionUpdated.AddDynamic(this, &UStudentPerceptor::OnPerceptionUpdated);
 	}
-	
 	
 	//In case I want 
 	// PrimaryComponentTick.AddPrerequisite(

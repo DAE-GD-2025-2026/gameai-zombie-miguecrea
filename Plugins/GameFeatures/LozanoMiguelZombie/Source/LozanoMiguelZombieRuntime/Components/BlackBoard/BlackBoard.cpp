@@ -5,7 +5,6 @@
 
 UBlackBoard::UBlackBoard()
 {
-
 	PrimaryComponentTick.bCanEverTick = true;
 }
 

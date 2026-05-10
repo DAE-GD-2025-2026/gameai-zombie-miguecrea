@@ -8,11 +8,10 @@ UCLASS(Abstract, Blueprintable, EditInlineNew)
 class LOZANOMIGUELZOMBIERUNTIME_API UStateBase : public UObject
 {
 	GENERATED_BODY()
-
 public:
 	UFUNCTION(BlueprintNativeEvent, Category="FSM")
 	void OnEnter(AActor* Owner);
-	virtual void OnEnter_Implementation(AActor* Owner) {}
+	virtual void OnEnter_Implementation(AActor * Owner) {}
 
 	UFUNCTION(BlueprintNativeEvent, Category="FSM")
 	void OnTick(float DeltaTime, AActor* Owner);
@@ -20,5 +19,12 @@ public:
 
 	UFUNCTION(BlueprintNativeEvent, Category="FSM")
 	void OnExit(AActor* Owner);
-	virtual void OnExit_Implementation(AActor* Owner) {}
+	virtual void OnExit_Implementation(AActor * Owner) {}
+};
+
+class LOZANOMIGUELZOMBIERUNTIME_API   USeekState  : public UStateBase
+{
+public:
+	virtual void OnEnter_Implementation(AActor * Owner) override;
+	
 };

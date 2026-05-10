@@ -18,80 +18,40 @@ USteeringComponent::USteeringComponent()
 void USteeringComponent::BeginPlay()
 {
 	Super::BeginPlay();
-	APawn* PawnOwner = Cast<APawn>(GetOwner());
-
-
-	pawn = GetWorld()->GetFirstPlayerController()->GetPawn();
-
-	if (pawn)
+	m_PawnOwner = Cast<APawn>(GetOwner());
+	m_SpectatorPawn = GetWorld()->GetFirstPlayerController()->GetPawn();
+	
+	if (m_SpectatorPawn)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("%s"),*pawn->GetName());
-		
 		USpectatorFollowComponent* FollowComp =
-	   NewObject<USpectatorFollowComponent>(pawn);
-
+	   NewObject<USpectatorFollowComponent>(m_SpectatorPawn);
 		if (FollowComp)
 		{
-			pawn->AddOwnedComponent(FollowComp);
-
+			m_SpectatorPawn->AddOwnedComponent(FollowComp);
 			FollowComp->RegisterComponent();
-
-			UE_LOG(LogTemp, Warning,
-				TEXT("Component Added"));
 		}
-		
 	}
-
-	// AGameModeBase* GameMode = GetWorld()->GetAuthGameMode();
-	// if (GameMode)
-	// {
-	// 	AZombieGameMode* ZombieGameMode = Cast<AZombieGameMode>(GameMode);
-	// 	if (ZombieGameMode)
-	// 	{
-	// 		UE_LOG(LogTemp, Warning, TEXT(" Zombie GameMode Is Okay "));
-	// 		
-	// 		APlayerController * PlayerController =
-	// 	   GetWorld()->GetFirstPlayerController();
-	// 		
-	// 		if (!PlayerController)
-	// 		{
-	// 			UE_LOG(LogTemp, Error, TEXT("PlayerController Is Null"));
-	// 		}
-	// 		else
-	// 		{
-	// 			UE_LOG(LogTemp,Warning, TEXT("PlayerController Is okay"));
-	// 			
-	// 		}
-	// 		
-	// 		
-	// 		
-	// 	}
-	// 	else
-	// 	{
-	// 		UE_LOG(LogTemp, Error, TEXT("GameMode Is null "));
-	// 	}
-	// }
-	// else
-	// {
-	//
-	// }
-
-	////////////////////////////////
+	
 	UFloatingPawnMovement* Floating =
 		Cast<UFloatingPawnMovement>(
-			PawnOwner->GetComponentByClass(UFloatingPawnMovement::StaticClass())
+			m_PawnOwner->GetComponentByClass(UFloatingPawnMovement::StaticClass())
 		);
-	Floating->MaxSpeed = Floating->GetMaxSpeed() * 0.1f;
-	if (PawnOwner)
+	
+	Floating->MaxSpeed = Floating->GetMaxSpeed() * 0.3f;
+	if (m_PawnOwner)
 	{
-		m_AIController = Cast<ASurvivorAIController>(PawnOwner->GetController());
+		m_AIController = Cast<ASurvivorAIController>(m_PawnOwner->GetController());
+		
 		if (m_AIController)
 		{
 			UE_LOG(LogTemp, Warning, TEXT("Survivor AI Controller created"));
 
+			
+			
+			
 			FAIMoveRequest MoveReq;
 
-			FVector TargetLocation{200.f, 4000.f, 35.f};
+			FVector TargetLocation{0.f, 0.f, 35.f};
 			MoveReq.SetGoalLocation(TargetLocation);
 			MoveReq.SetAcceptanceRadius(120.f);
 			MoveReq.SetUsePathfinding(true);
@@ -120,7 +80,6 @@ void USteeringComponent::BeginPlay()
 			case EPathFollowingRequestResult::Failed:
 
 				UE_LOG(LogTemp, Error, TEXT("Survivor AI Controller Failed"));
-
 				// Usually no navmesh, no path, or invalid goal
 				break;
 			}
@@ -136,4 +95,16 @@ void USteeringComponent::TickComponent(float DeltaTime, ELevelTick TickType,
                                        FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+	
+	if (m_Rotate)
+	{
+		if (m_PawnOwner)
+		{
+			m_PawnOwner->AddActorLocalRotation(
+				FRotator(0.f, 90.f * DeltaTime, 0.f)
+			);
+		}
+	}
 }
+
+ 

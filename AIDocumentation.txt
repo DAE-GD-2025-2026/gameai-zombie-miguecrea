@@ -1,0 +1,313 @@
+//==============================================================================
+// AAIController API Reference
+// For: Survivor AI Coding Game
+// 
+// This is a quick reference for the AAIController API and related systems.
+// Use this when implementing survivor behaviors that need to navigate,
+// perceive, and react to a zombie-filled environment.
+//==============================================================================
+
+
+//------------------------------------------------------------------------------
+// REQUIRED HEADERS
+//------------------------------------------------------------------------------
+// #include "AIController.h"                          // AAIController, MoveTo()
+// #include "AITypes.h"                               // EPathFollowingRequestResult, FAIMoveRequest, FAIRequestID
+// #include "Navigation/PathFollowingComponent.h"     // FPathFollowingResult, OnRequestFinished
+// #include "NavigationPath.h"                        // FNavigationPath, FNavPathPoint
+// #include "NavigationSystem.h"                      // UNavigationSystemV1, navmesh queries
+// #include "BehaviorTree/BlackboardComponent.h"      // Blackboard get/set
+// #include "Perception/AIPerceptionComponent.h"      // sight, hearing, damage senses
+// #include "DrawDebugHelpers.h"                      // path visualization
+//
+// Build.cs:
+// PublicDependencyModuleNames.AddRange(new[] {
+//     "Core", "CoreUObject", "Engine", "InputCore",
+//     "AIModule", "NavigationSystem", "GameplayTasks"
+// });
+
+
+//------------------------------------------------------------------------------
+// MOVEMENT — STARTING MOVES
+//------------------------------------------------------------------------------
+// MoveTo(const FAIMoveRequest&, FNavPathSharedPtr* OutPath = nullptr)
+//     Full control. Build an FAIMoveRequest with goal, radius, partial path, etc.
+//
+// MoveToActor(AActor* Goal, AcceptanceRadius, bStopOnOverlap, bUsePathfinding,
+//             bCanStrafe, FilterClass, bAllowPartialPath)
+//     Chase a moving target. Repaths automatically as the target moves.
+//     USE FOR: survivor following an ally, fleeing toward a safe actor.
+//
+// MoveToLocation(FVector Dest, AcceptanceRadius, bStopOnOverlap, bUsePathfinding,
+//                bProjectDestinationToNavigation, bCanStrafe, FilterClass,
+//                bAllowPartialPath)
+//     One-shot move to a fixed point.
+//     USE FOR: heading to last known safe spot, scavenging waypoint.
+//
+// Returns: EPathFollowingRequestResult::Type
+//     - RequestSuccessful   (path computed, moving)
+//     - AlreadyAtGoal       (no movement needed)
+//     - Failed              (no navmesh, no path, invalid goal)
+
+
+//------------------------------------------------------------------------------
+// MOVEMENT — STOPPING / PAUSING
+//------------------------------------------------------------------------------
+// StopMovement()                  Hard stop, clears current path.
+// PauseMove(FAIRequestID)         Pause without clearing (e.g. wait for door).
+// ResumeMove(FAIRequestID)        Resume a paused move.
+
+
+//------------------------------------------------------------------------------
+// MOVEMENT — STATE QUERIES
+//------------------------------------------------------------------------------
+// GetMoveStatus()                 EPathFollowingStatus: Idle, Waiting, Paused, Moving
+// HasPartialPath()                True if path didn't reach the goal (blocked).
+// GetImmediateMoveDestination()   Next path point (not the final goal).
+// GetCurrentMoveRequestID()       ID of the in-flight request.
+// IsFollowingAPath()              Bool — currently moving along a path.
+
+
+//------------------------------------------------------------------------------
+// FAIMoveRequest — FULL CONFIGURATION
+//------------------------------------------------------------------------------
+// FAIMoveRequest MoveReq;
+// MoveReq.SetGoalActor(TargetActor);              // OR SetGoalLocation(FVector)
+// MoveReq.SetAcceptanceRadius(120.f);             // how close = "arrived"
+// MoveReq.SetUsePathfinding(true);
+// MoveReq.SetAllowPartialPath(true);              // accept best-effort paths
+// MoveReq.SetProjectGoalLocation(true);           // snap goal to navmesh
+// MoveReq.SetReachTestIncludesAgentRadius(true);
+// MoveReq.SetCanStrafe(true);                     // move sideways without rotating
+// MoveReq.SetNavigationFilter(MyFilterClass);     // custom nav filter (avoid zones)
+//
+// FNavPathSharedPtr NavPath;
+// auto Result = m_AIController->MoveTo(MoveReq, &NavPath);
+
+
+//------------------------------------------------------------------------------
+// READING THE PATH
+//------------------------------------------------------------------------------
+// if (NavPath.IsValid())
+// {
+//     const TArray<FNavPathPoint>& Points = NavPath->GetPathPoints();
+//     float Length = NavPath->GetLength();
+//     bool bPartial = NavPath->IsPartial();
+//
+//     // Visualize for debugging
+//     for (int32 i = 0; i < Points.Num() - 1; ++i)
+//     {
+//         DrawDebugLine(GetWorld(), Points[i].Location, Points[i+1].Location,
+//                       FColor::Green, false, 5.f, 0, 2.f);
+//     }
+// }
+//
+// NOTE: NavPath is a snapshot at request time. For the LIVE path, use:
+// m_AIController->GetPathFollowingComponent()->GetPath();
+
+
+//------------------------------------------------------------------------------
+// REACTING TO MOVE COMPLETION
+//------------------------------------------------------------------------------
+// OPTION 1 — Override in your AAIController subclass:
+//
+// virtual void OnMoveCompleted(FAIRequestID RequestID,
+//                              const FPathFollowingResult& Result) override
+// {
+//     Super::OnMoveCompleted(RequestID, Result);
+//
+//     if (Result.IsSuccess())              { /* reached goal */ }
+//     else if (Result.IsInterrupted())     { /* replaced by another move */ }
+//     else if (Result.HasFlag(FPathFollowingResultFlags::UserAbort)) { /* StopMovement */ }
+//     else if (Result.HasFlag(FPathFollowingResultFlags::Blocked))   { /* zombie blocking? */ }
+//     else if (Result.HasFlag(FPathFollowingResultFlags::InvalidPath)) { /* no path */ }
+// }
+//
+// OPTION 2 — Bind from external component:
+//
+// if (UPathFollowingComponent* PFComp = m_AIController->GetPathFollowingComponent())
+// {
+//     PFComp->OnRequestFinished.AddUObject(this, &UMyComp::HandleMoveFinished);
+// }
+//
+// REMEMBER to unbind in EndPlay if listener can outlive the controller.
+
+
+//------------------------------------------------------------------------------
+// LOOKING / AIMING — FOCUS SYSTEM
+//------------------------------------------------------------------------------
+// SetFocus(AActor* NewFocus, EAIFocusPriority::Type Priority = Default)
+// SetFocalPoint(FVector Point, EAIFocusPriority::Type Priority = Default)
+// ClearFocus(EAIFocusPriority::Type Priority)
+// GetFocusActor()
+// GetFocalPoint()
+//
+// Priorities (stack — highest wins):
+//     Default, Move, Gameplay
+//
+// USE FOR: survivor watching nearest zombie while moving to cover.
+//   SetFocus(NearestZombie);                              // baseline tracking
+//   SetFocus(Threat, EAIFocusPriority::Gameplay);         // override during reload
+
+
+//------------------------------------------------------------------------------
+// POSSESSION / PAWN LIFECYCLE
+//------------------------------------------------------------------------------
+// Possess(APawn*)             Take control of a pawn.
+// UnPossess()                 Release current pawn.
+// OnPossess(APawn*)           Override — set up perception, BT, initial state here.
+// OnUnPossess()               Override — cleanup.
+// GetPawn()                   Currently controlled pawn.
+
+
+//------------------------------------------------------------------------------
+// BEHAVIOR TREES & BLACKBOARD
+//------------------------------------------------------------------------------
+// RunBehaviorTree(UBehaviorTree*)
+// UseBlackboard(UBlackboardData*, UBlackboardComponent*& OutBB)
+// GetBlackboardComponent()
+// GetBrainComponent()
+//
+// Blackboard usage (great for survivor state):
+//   UBlackboardComponent* BB = GetBlackboardComponent();
+//   BB->SetValueAsObject("NearestZombie", Zombie);
+//   BB->SetValueAsVector("LastSafeSpot", Location);
+//   BB->SetValueAsFloat("Hunger", 0.7f);
+//   BB->SetValueAsBool("HasWeapon", true);
+//   BB->SetValueAsEnum("ThreatLevel", (uint8)EThreat::High);
+
+
+//------------------------------------------------------------------------------
+// PERCEPTION (UAIPerceptionComponent)
+//------------------------------------------------------------------------------
+// GetPerceptionComponent()
+// GetPerceivedActors(TSubclassOf<UAISense>, TArray<AActor*>& OutActors)
+//
+// Senses to configure:
+//   - UAISense_Sight    (see zombies, items, allies)
+//   - UAISense_Hearing  (gunshots, footsteps, screams)
+//   - UAISense_Damage   (got bitten — react!)
+//
+// Bind delegate (in OnPossess or BeginPlay):
+//   PerceptionComp->OnTargetPerceptionUpdated.AddDynamic(this, &AMyAI::OnSensed);
+//
+// UFUNCTION()
+// void OnSensed(AActor* Actor, FAIStimulus Stimulus)
+// {
+//     if (Stimulus.WasSuccessfullySensed()) { /* spotted */ }
+//     else                                  { /* lost sight */ }
+// }
+
+
+//------------------------------------------------------------------------------
+// LINE OF SIGHT
+//------------------------------------------------------------------------------
+// LineOfSightTo(const AActor*, FVector ViewPoint = ZeroVector,
+//               bool bAlternateChecks = false)
+// GetActorEyesViewPoint(FVector& OutLocation, FRotator& OutRotation)
+
+
+//------------------------------------------------------------------------------
+// NAVIGATION SYSTEM — QUERIES WITHOUT MOVING
+//------------------------------------------------------------------------------
+// UNavigationSystemV1* NavSys = UNavigationSystemV1::GetCurrent(GetWorld());
+//
+// // Random points (great for wander / scavenge behaviors)
+// FVector OutLoc;
+// NavSys->GetRandomPointInNavigableRadius(Origin, Radius, OutLoc);
+// NavSys->GetRandomReachablePointInRadius(Origin, Radius, OutLoc);
+//
+// // Snap a point onto the navmesh
+// FNavLocation Projected;
+// NavSys->ProjectPointToNavigation(Point, Projected, FVector(100, 100, 100));
+//
+// // "Can I reach this spot?" — synchronous path query, no movement
+// UNavigationPath* Path = NavSys->FindPathToLocationSynchronously(
+//     GetWorld(), Start, End, Querier);
+// if (Path && Path->IsValid() && !Path->IsPartial()) { /* reachable */ }
+
+
+//------------------------------------------------------------------------------
+// COMPONENTS YOU CAN GRAB FROM AAIController
+//------------------------------------------------------------------------------
+// GetPathFollowingComponent()    Path execution, OnRequestFinished delegate.
+// GetPerceptionComponent()       Senses (sight/hearing/damage).
+// GetActionsComp()               Gameplay tasks system.
+// GetBrainComponent()            BT or state tree brain.
+
+
+//------------------------------------------------------------------------------
+// UAIBlueprintHelperLibrary — STATIC HELPERS
+//------------------------------------------------------------------------------
+// UAIBlueprintHelperLibrary::SimpleMoveToLocation(Controller, Dest)
+// UAIBlueprintHelperLibrary::SimpleMoveToActor(Controller, Goal)
+// UAIBlueprintHelperLibrary::GetCurrentPath(Controller)
+// UAIBlueprintHelperLibrary::GetAIController(Pawn)
+
+
+//==============================================================================
+// SURVIVOR AI — TYPICAL PATTERNS
+//==============================================================================
+
+// PATTERN 1: Flee from nearest zombie
+// -------------------------------------
+// FVector AwayDir = (MyLoc - ZombieLoc).GetSafeNormal();
+// FVector FleeTarget = MyLoc + AwayDir * FleeDistance;
+// FNavLocation Projected;
+// if (NavSys->ProjectPointToNavigation(FleeTarget, Projected, FVector(200,200,200)))
+// {
+//     m_AIController->MoveToLocation(Projected.Location);
+// }
+
+
+// PATTERN 2: Scavenge — find random reachable point, look for items
+// ------------------------------------------------------------------
+// FVector RandomPoint;
+// if (NavSys->GetRandomReachablePointInRadius(MyLoc, ScavengeRadius, RandomPoint))
+// {
+//     m_AIController->MoveToLocation(RandomPoint);
+//     // OnMoveCompleted → search for items at destination
+// }
+
+
+// PATTERN 3: Watch threat while moving to cover
+// ----------------------------------------------
+// SetFocus(NearestZombie, EAIFocusPriority::Gameplay);
+// m_AIController->MoveToLocation(CoverPoint);
+// // Survivor walks to cover but keeps facing/aiming at zombie
+
+
+// PATTERN 4: Reachability check before committing
+// ------------------------------------------------
+// UNavigationPath* TestPath = NavSys->FindPathToLocationSynchronously(
+//     GetWorld(), MyLoc, SafeHouseLoc);
+// if (TestPath && TestPath->IsValid() && !TestPath->IsPartial())
+// {
+//     // Safehouse is reachable — go for it
+//     m_AIController->MoveToLocation(SafeHouseLoc);
+// }
+// else
+// {
+//     // Find alternate shelter
+// }
+
+
+// PATTERN 5: React to perception
+// -------------------------------
+// void OnSensed(AActor* Actor, FAIStimulus Stimulus)
+// {
+//     if (AZombie* Z = Cast<AZombie>(Actor))
+//     {
+//         if (Stimulus.WasSuccessfullySensed())
+//         {
+//             BB->SetValueAsObject("NearestZombie", Z);
+//             BB->SetValueAsVector("LastSeenZombieLoc", Stimulus.StimulusLocation);
+//         }
+//         else
+//         {
+//             BB->ClearValue("NearestZombie");
+//         }
+//     }
+// }
+
+//==============================================================================

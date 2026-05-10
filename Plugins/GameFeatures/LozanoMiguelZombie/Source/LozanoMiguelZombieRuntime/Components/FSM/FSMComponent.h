@@ -14,6 +14,17 @@ struct FStateTransition
 	TFunction<bool(AActor*)> Condition;
 };
 
+//USTRUCT(BlueprintType)
+// struct FFSMTransition
+// {
+// 	GENERATED_BODY()
+// 	UPROPERTY(EditAnywhere) FGameplayTag From;
+// 	UPROPERTY(EditAnywhere) FGameplayTag To;
+// 	UPROPERTY(EditAnywhere) FName BlackboardKey;   // dropdown-friendly with FBlackboardKeySelector
+// 	UPROPERTY(EditAnywhere) EBBCompareOp Op;
+// 	UPROPERTY(EditAnywhere) float CompareFloat;     // or use a tagged variant
+// };
+
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class LOZANOMIGUELZOMBIERUNTIME_API UFSMComponent : public UActorComponent
 {
@@ -23,7 +34,7 @@ public:
 
 	// Assign states directly in the Blueprint details panel
 	UPROPERTY(EditAnywhere, Instanced, Category="FSM")
-	TMap<FGameplayTag, TObjectPtr<UStateBase>> States;
+	TMap<FGameplayTag,TObjectPtr<UStateBase>> States;
 
 	UPROPERTY(EditAnywhere, Category="FSM")
 	FGameplayTag InitialState;
@@ -36,7 +47,7 @@ public:
 	                           FActorComponentTickFunction* ThisTickFunction) override;
 
 	// Register a state from C++ (alternative to the Blueprint Instanced map)
-	void RegisterState(FGameplayTag Tag, UStateBase* State);
+	void RegisterState(FGameplayTag Tag, UStateBase * State);
 
 	// Wire a transition — the only thing callers need to set up
 	void AddTransition(FGameplayTag From, FGameplayTag To, TFunction<bool(AActor*)> Condition);
@@ -49,7 +60,6 @@ public:
 
 	UFUNCTION(BlueprintPure, Category="FSM")
 	bool IsInState(FGameplayTag Tag) const { return CurrentStateTag == Tag; }
-
 private:
 	TArray<FStateTransition> Transitions;
 	TObjectPtr<UStateBase>   CurrentState;
