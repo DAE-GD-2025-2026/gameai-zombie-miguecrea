@@ -18,8 +18,7 @@ void UStudentPerceptor::BeginPlay()
 	{
 		PerceptionComp->OnTargetPerceptionUpdated.AddDynamic(this, &UStudentPerceptor::OnPerceptionUpdated);
 	}
-	
-	//In case I want 
+	//In case I want teetetwtet
 	// PrimaryComponentTick.AddPrerequisite(
 	// 	Perception,
 	// 	Perception->PrimaryComponentTick
@@ -29,7 +28,7 @@ void UStudentPerceptor::BeginPlay()
 
 void UStudentPerceptor::OnPerceptionUpdated(AActor * Actor,FAIStimulus Stimulus)
 {
-	
+	// Update the FSM keys 
 	bool isValid = false;
 
 

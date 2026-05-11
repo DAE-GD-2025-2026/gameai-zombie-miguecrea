@@ -19,25 +19,35 @@ void USteeringComponent::BeginPlay()
 {
 	Super::BeginPlay();
 	m_PawnOwner = Cast<APawn>(GetOwner());
-	m_SpectatorPawn = GetWorld()->GetFirstPlayerController()->GetPawn();
+	APawn * m_SpectatorPawn = GetWorld()->GetFirstPlayerController()->GetPawn();
 	
-	if (m_SpectatorPawn)
-	{
-		USpectatorFollowComponent* FollowComp =
-	   NewObject<USpectatorFollowComponent>(m_SpectatorPawn);
-		if (FollowComp)
-		{
-			m_SpectatorPawn->AddOwnedComponent(FollowComp);
-			FollowComp->RegisterComponent();
-		}
-	}
-	
+	// if (m_SpectatorPawn)
+	// {
+	// 	USpectatorFollowComponent* FollowComp =
+	//    NewObject<USpectatorFollowComponent>(m_SpectatorPawn);
+	// 	if (FollowComp)
+	// 	{
+	// 		m_SpectatorPawn->AddOwnedComponent(FollowComp);
+	// 		FollowComp->RegisterComponent();
+	// 	}
+	// }
+
 	UFloatingPawnMovement* Floating =
 		Cast<UFloatingPawnMovement>(
 			m_PawnOwner->GetComponentByClass(UFloatingPawnMovement::StaticClass())
 		);
+	if (Floating)
+	{
+		Floating->MaxSpeed = Floating->GetMaxSpeed() * 0.3f;
+	}
 	
-	Floating->MaxSpeed = Floating->GetMaxSpeed() * 0.3f;
+	
+	
+	
+	
+	
+	
+	
 	if (m_PawnOwner)
 	{
 		m_AIController = Cast<ASurvivorAIController>(m_PawnOwner->GetController());
@@ -51,7 +61,7 @@ void USteeringComponent::BeginPlay()
 			
 			FAIMoveRequest MoveReq;
 
-			FVector TargetLocation{0.f, 0.f, 35.f};
+			FVector TargetLocation{0.f, 7000.f, 35.f};
 			MoveReq.SetGoalLocation(TargetLocation);
 			MoveReq.SetAcceptanceRadius(120.f);
 			MoveReq.SetUsePathfinding(true);

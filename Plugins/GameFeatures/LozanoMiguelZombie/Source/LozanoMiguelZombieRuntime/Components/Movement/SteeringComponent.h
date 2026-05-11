@@ -21,7 +21,9 @@ protected:
 	
 	class ASurvivorAIController * m_AIController;
 	
-	APawn * pawn;
+	APawn * m_PawnOwner;
+	
+	bool m_Rotate  = false;
 
 public:
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType,
