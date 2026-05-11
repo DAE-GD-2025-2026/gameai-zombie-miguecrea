@@ -10,6 +10,8 @@
 #include "GameAI_Zombie/GameManagement/ZombieGameMode.h"
 #include "TimerManager.h"
 #include "../SpectatorComponent/SpectatorFollowComponent.h"
+#include "../MACROS/DebugMacro.h"
+
 USteeringComponent::USteeringComponent()
 {
 	PrimaryComponentTick.bCanEverTick = true;
@@ -23,7 +25,7 @@ void USteeringComponent::BeginPlay()
 	
 	// if (m_SpectatorPawn)
 	// {
-	// 	USpectatorFollowComponent* FollowComp =
+	// 	USpectatorFollowComponent * FollowComp =
 	//    NewObject<USpectatorFollowComponent>(m_SpectatorPawn);
 	// 	if (FollowComp)
 	// 	{
@@ -32,21 +34,6 @@ void USteeringComponent::BeginPlay()
 	// 	}
 	// }
 
-	UFloatingPawnMovement* Floating =
-		Cast<UFloatingPawnMovement>(
-			m_PawnOwner->GetComponentByClass(UFloatingPawnMovement::StaticClass())
-		);
-	if (Floating)
-	{
-		Floating->MaxSpeed = Floating->GetMaxSpeed() * 0.3f;
-	}
-	
-	
-	
-	
-	
-	
-	
 	
 	if (m_PawnOwner)
 	{
@@ -71,8 +58,7 @@ void USteeringComponent::BeginPlay()
 			MoveReq.SetCanStrafe(true);
 			// MoveReq.SetNavigationFilter(MyFilterClass);
 
-			FNavPathSharedPtr NavPath; //Alt Enter 
-			EPathFollowingRequestResult::Type Result = m_AIController->MoveTo(MoveReq, &NavPath);
+			EPathFollowingRequestResult::Type Result = m_AIController->MoveTo(MoveReq, &m_NavPath);
 
 			switch (Result)
 			{
@@ -105,6 +91,22 @@ void USteeringComponent::TickComponent(float DeltaTime, ELevelTick TickType,
                                        FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+	
+	
+	FNavPathSharedPtr LivePath = m_AIController->GetPathFollowingComponent()->GetPath();
+	
+	if (LivePath.IsValid())
+	{
+		const TArray<FNavPathPoint> & Points = LivePath->GetPathPoints();
+		float TotalLength = LivePath->GetLength();
+		bool bPartial = LivePath->IsPartial();
+		for (int32 i = 0; i < Points.Num() - 1; ++i)
+		{
+				DRAW_VECTOR(GetWorld(),Points[i].Location,Points[i + 1].Location, FColor::Yellow)
+				DRAW_CIRCLE(GetWorld(),Points[i].Location, 20.f,FColor::Red,3.f);
+		}
+	}
+	
 	
 	if (m_Rotate)
 	{

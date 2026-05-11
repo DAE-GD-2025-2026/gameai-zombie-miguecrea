@@ -23,6 +23,8 @@ protected:
 	
 	APawn * m_PawnOwner;
 	
+	FNavPathSharedPtr  m_NavPath;
+	
 	bool m_Rotate  = false;
 
 public:
