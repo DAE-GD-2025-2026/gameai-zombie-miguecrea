@@ -3,6 +3,7 @@
 
 #include "StudentPerceptor.h"
 #include "Survivor/SurvivorPawn.h"
+#include "Common/InventoryComponent.h"
 
 UStudentPerceptor::UStudentPerceptor()
 {
@@ -18,6 +19,11 @@ void UStudentPerceptor::BeginPlay()
 	{
 		PerceptionComp->OnTargetPerceptionUpdated.AddDynamic(this, &UStudentPerceptor::OnPerceptionUpdated);
 	}
+	
+	
+	auto inv = GetOwner()->GetComponentByClass<UInventoryComponent>();
+	
+	
 	//In case I want teetetwtet
 	// PrimaryComponentTick.AddPrerequisite(
 	// 	Perception,
@@ -28,10 +34,46 @@ void UStudentPerceptor::BeginPlay()
 
 void UStudentPerceptor::OnPerceptionUpdated(AActor * Actor,FAIStimulus Stimulus)
 {
-	// Update the FSM keys 
-	bool isValid = false;
+	
+	 ABaseItem * IsItem = Cast<ABaseItem>(Actor);
+	
+	
+	UE_LOG(LogTemp,Warning,TEXT("hELLO"))
+	//ADD Actor to memory 
+	 if (IsItem)
+	 {
+	 	auto inv = GetOwner()->GetComponentByClass<UInventoryComponent>()->GrabItem(0,IsItem);
+		 
+	 //	UE_LOG(LogTemp, Warning, TEXT("ItEM gRABBED"));
+	 }
+	
+	
+	
+	// GO TO ITEM 
+	
+	//SET key for the BB to check what is going to do 
+	
+	
+	
+	//Stimulus.Type             // FAISenseID — which sense fired (Sight, Hearing, Damage, Touch, Team, Prediction)//Stimulus.StimulusLocation // FVector — world location of the stimulus (where the noise was, where the actor was seen)//Stimulus.ReceiverLocation // FVector — where the perceiver was when it sensed it
+//Stimulus.Strength         // float — sense-specific intensity (loudness, damage amount, etc.)
+//Stimulus.Age              // float — seconds since this stimulus was registered
+//Stimulus.ExpirationAge    // float — when the stimulus will be discarded
+//Stimulus.Tag              // FName — optional sense-specific tag (e.g., hearing event tag)
+	
 
+	if (Stimulus.Type == UAISense::GetSenseID<UAISense_Sight>())
+	{
+		// saw someone
+	}
+	// else if (Stimulus.Type == UAISense::GetSenseID<UAISense_Hearing>())
+	// {
+	// 	// heard something — Stimulus.Tag often carries the noise event tag
+	// }
+	//
 
+	
+	
 	//items , 
 
 	//PurgeZone 

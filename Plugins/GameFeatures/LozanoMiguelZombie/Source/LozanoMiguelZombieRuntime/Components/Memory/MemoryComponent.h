@@ -16,7 +16,14 @@ public:
 	UMemoryComponent();
 protected:
 	virtual void BeginPlay() override;
+	
+	TArray<AActor*> m_MemoryActors;
 public:
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType,
 	                           FActorComponentTickFunction * ThisTickFunction) override;
+	
+	//PICK BEST INTEREST 
+	
+	//ADD TO MEMORY 
+	
 };

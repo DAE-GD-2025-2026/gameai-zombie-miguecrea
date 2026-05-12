@@ -17,7 +17,7 @@ public:
 	UInventoryComponent();
 	
 	UFUNCTION()
-	bool GrabItem(int SlotIdx, ABaseItem* Item);
+	bool GrabItem(int SlotIdx, ABaseItem * Item);
 	UFUNCTION()
 	bool UseItem(int SlotIdx);
 	UFUNCTION()

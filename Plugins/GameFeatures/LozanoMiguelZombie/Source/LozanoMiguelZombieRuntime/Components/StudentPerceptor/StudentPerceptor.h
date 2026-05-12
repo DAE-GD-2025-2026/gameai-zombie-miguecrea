@@ -26,5 +26,5 @@ public:
 	UFUNCTION()
 	virtual void OnPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus);
 
-	ASurvivorPawn* m_SurvivorPawn = nullptr;
+	ASurvivorPawn * m_SurvivorPawn = nullptr;
 };

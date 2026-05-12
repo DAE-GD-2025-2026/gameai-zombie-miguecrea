@@ -13,7 +13,7 @@ UInventoryComponent::UInventoryComponent()
 	Items.SetNum(5);
 }
 
-bool UInventoryComponent::GrabItem(int SlotIdx, ABaseItem* Item)
+bool UInventoryComponent::GrabItem(int SlotIdx, ABaseItem * Item)
 {
 	if (SlotIdx >= GetInventoryCapacity() || 
 		Item == nullptr ||

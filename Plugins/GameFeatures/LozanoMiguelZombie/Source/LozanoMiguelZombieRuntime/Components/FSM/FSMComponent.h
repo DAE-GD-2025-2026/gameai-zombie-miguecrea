@@ -2,7 +2,6 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
-#include "GameplayTagContainer.h"
 #include "StateBase.h"
 #include "FSMComponent.generated.h"
 
@@ -13,9 +12,8 @@ USTRUCT()
 struct FFSMTransition
 {
 	GENERATED_BODY()
-	FGameplayTag From;
-	FGameplayTag To;
-	// Pure C++ predicate. Not a UPROPERTY — invisible to editor/Blueprint.
+	FName From;
+	FName To;
 	TFunction<bool(UBlackboardComponent*)> Predicate;
 };
 
@@ -26,13 +24,12 @@ class LOZANOMIGUELZOMBIERUNTIME_API UFSMComponent : public UActorComponent
 public:
 	UFSMComponent();
 
-	UPROPERTY(EditAnywhere, Instanced, Category="FSM")
-	TMap<FGameplayTag, TObjectPtr<UStateBase>> States;
+	UPROPERTY()
+	TMap<FName, TObjectPtr<UStateBase>> States;
 
 	UPROPERTY(EditAnywhere, Category="FSM")
-	FGameplayTag InitialState;
+	FName InitialState;
 
-	UPROPERTY(EditAnywhere, Category="FSM")
 	TArray<FFSMTransition> Transitions;
 
 	UPROPERTY(EditAnywhere, Category="FSM|Debug")
@@ -45,25 +42,25 @@ public:
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType,
 	                           FActorComponentTickFunction* ThisTickFunction) override;
 
-	void RegisterState(FGameplayTag Tag, UStateBase * State);
+	void RegisterState(FName Name, UStateBase * State);
 
 	void AddTransition(const FFSMTransition & Transition);
 
 	UFUNCTION(BlueprintCallable, Category="FSM")
-	void ForceTransition(FGameplayTag To);
+	void ForceTransition(FName To);
 
 	UFUNCTION(BlueprintPure, Category="FSM")
-	FGameplayTag GetCurrentStateTag() const { return CurrentStateTag; }
+	FName GetCurrentStateName() const { return CurrentStateName; }
 
 	UFUNCTION(BlueprintPure, Category="FSM")
-	bool IsInState(FGameplayTag Tag) const { return CurrentStateTag == Tag; }
+	bool IsInState(FName Name) const { return CurrentStateName == Name; }
 
 private:
 	TWeakObjectPtr<UBlackboardComponent> Blackboard;
 	TObjectPtr<UStateBase>               CurrentState;
-	FGameplayTag                         CurrentStateTag;
+	FName                                CurrentStateName;
 
 	UBlackboardComponent * ResolveBlackboard() const;
 	bool EvaluateTransition(const FFSMTransition & T, UBlackboardComponent* BB) const;
-	void TransitionTo(FGameplayTag To);
+	void TransitionTo(FName To);
 };
