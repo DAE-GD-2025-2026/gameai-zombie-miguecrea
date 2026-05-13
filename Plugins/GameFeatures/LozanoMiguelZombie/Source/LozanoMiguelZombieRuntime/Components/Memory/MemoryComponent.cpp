@@ -2,7 +2,7 @@
 
 
 #include "MemoryComponent.h"
-
+#include "../FSM/FSMComponent.h"
 
 // Sets default values for this component's properties
 UMemoryComponent::UMemoryComponent()
@@ -17,8 +17,9 @@ UMemoryComponent::UMemoryComponent()
 void UMemoryComponent::BeginPlay()
 {
 	Super::BeginPlay();
-
 	
+	
+
 }
 
 

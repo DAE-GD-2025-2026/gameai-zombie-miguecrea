@@ -19,10 +19,18 @@ USteeringComponent::USteeringComponent()
 
 void USteeringComponent::Move(const FVector & ToLocation)
 {
+	ASurvivorAIController* AI = GetAI();
+	if (!AI)
+	{
+		UE_LOG(LogTemp, Warning,
+			TEXT("Steering::Move ignored — AIController not ready yet."));
+		return;
+	}
+
 	FAIMoveRequest MoveReq;
 
 	MoveReq.SetGoalLocation(ToLocation);
-	MoveReq.SetAcceptanceRadius(150.f);
+	MoveReq.SetAcceptanceRadius(100.f);
 	MoveReq.SetUsePathfinding(true);
 	MoveReq.SetAllowPartialPath(true);
 	MoveReq.SetProjectGoalLocation(true);
@@ -30,7 +38,7 @@ void USteeringComponent::Move(const FVector & ToLocation)
 	MoveReq.SetCanStrafe(true);
 	// MoveReq.SetNavigationFilter(MyFilterClass);
 
-	EPathFollowingRequestResult::Type Result = m_AIController->MoveTo(MoveReq,&m_NavPath);
+	EPathFollowingRequestResult::Type Result = AI->MoveTo(MoveReq, &m_NavPath);
 
 	switch (Result)
 	{
@@ -53,33 +61,46 @@ void USteeringComponent::BeginPlay()
 {
 	Super::BeginPlay();
 	m_PawnOwner = Cast<APawn>(GetOwner());
-	
+
 	if (m_PawnOwner)
 	{
-		m_PawnOwner->bUseControllerRotationYaw = false;
+		m_PawnOwner->bUseControllerRotationYaw   = false;
 		m_PawnOwner->bUseControllerRotationPitch = false;
-		m_PawnOwner->bUseControllerRotationRoll = false;
-
-		m_AIController = Cast<ASurvivorAIController>(m_PawnOwner->GetController());
-		
-		if (m_AIController)
-		{
-			m_AIController->bSetControlRotationFromPawnOrientation = false;
-			m_AIController->ClearFocus(EAIFocusPriority::Gameplay); // remove combat override
-			m_AIController->ClearFocus(EAIFocusPriority::Default); // remove baseline
-			m_AIController->ClearFocus(EAIFocusPriority::Move); // remove move-driven
-			//Move();
-		}
-		else
-		{
-			UE_LOG(LogTemp, Error, TEXT("AI Controller Is Null"));
-		}
+		m_PawnOwner->bUseControllerRotationRoll  = false;
 	}
+
+	// Opportunistic warm-up — fine if it fails. GetAI() will retry lazily.
+	GetAI();
+}
+
+ASurvivorAIController * USteeringComponent::GetAI()
+{
+	if (m_AIController) return m_AIController;
+
+	if (!m_PawnOwner) m_PawnOwner = Cast<APawn>(GetOwner());
+	if (!m_PawnOwner) return nullptr;
+
+	m_AIController = Cast<ASurvivorAIController>(m_PawnOwner->GetController());
+	if (!m_AIController) return nullptr;
+
+	// One-time controller config, run the moment the controller is first seen.
+	m_AIController->bSetControlRotationFromPawnOrientation = false;
+	m_AIController->ClearFocus(EAIFocusPriority::Gameplay); // remove combat override
+	m_AIController->ClearFocus(EAIFocusPriority::Default);  // remove baseline
+	m_AIController->ClearFocus(EAIFocusPriority::Move);     // remove move-driven
+
+	return m_AIController;
 }
 
 void USteeringComponent::RenderPath()
 {
-	FNavPathSharedPtr LivePath = m_AIController->GetPathFollowingComponent()->GetPath();
+	ASurvivorAIController* AI = GetAI();
+	if (!AI) return;
+
+	UPathFollowingComponent* PFC = AI->GetPathFollowingComponent();
+	if (!PFC) return;
+
+	FNavPathSharedPtr LivePath = PFC->GetPath();
 
 	if (LivePath.IsValid())
 	{

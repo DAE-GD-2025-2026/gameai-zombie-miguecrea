@@ -54,12 +54,23 @@ void UWanderState::VisualizeWanderPoints()
 {
 	for (int32 RingNumber = 1; RingNumber <= MaxRings; ++RingNumber)
 	{
-		const float Radius  = RadiusStep * RingNumber;
-		DRAW_CIRCLE(GetWorld(),FVector{},Radius, FColor::Blue, 3.f);
+		const float Radius = RadiusStep * RingNumber;
+		DRAW_CIRCLE(GetWorld(), FVector{}, Radius, FColor::Blue, 3.f);
 	}
-	for (const auto & point: PatrolPoints)
+
+
+	for (const auto& Point : PatrolPoints)
 	{
-		DRAW_CIRCLE(GetWorld(), point.Location, 40.f,point.Color, 3.f);
+		const FColor DrawColor =
+			Point.bVisited ? FColor::Green : FColor::Red;
+
+		DRAW_CIRCLE(
+			GetWorld(),
+			Point.Location,
+			40.f,
+			DrawColor,
+			3.f
+		);
 	}
 }
 
@@ -71,9 +82,11 @@ void UWanderState::OnTick_Implementation(float DeltaTime, AActor * Owner)
 	
 	 if (ArrivedAtTarget(Owner))
 	 {
-	// 	AdvancePatrol();
-	// 	PickNewTarget(Owner);
-	// 	return;
+	 	
+	 	UE_LOG(LogTemp,Warning,TEXT("aRRIVED"))
+	 	AdvancePatrol();
+	 	PickNewTarget(Owner);
+	 	return;
 	 }
 	//
 	// // Periodic re-evaluation: even mid-walk, change our mind if a better
@@ -114,7 +127,7 @@ void UWanderState::PickNewTarget(AActor * Owner)
 	{
 		CurrentDestination = PatrolPoints[CurrentPatrolIdx].Location;
 		Steering->Move(CurrentDestination);
-		WriteDestinationToBlackboard(CurrentDestination);
+		//WriteDestinationToBlackboard(CurrentDestination);
 	}
 }
 
@@ -141,7 +154,7 @@ void UWanderState::AdvancePatrol()
 bool UWanderState::ArrivedAtTarget(AActor * Owner) const
 {
 	if (!Owner) return false;
-	const float DistSq = FVector::DistSquared(Owner->GetActorLocation(), CurrentDestination);
+	const float DistSq = FVector::DistSquared(Owner->GetActorLocation(),CurrentDestination);
 	return DistSq <= (ArrivalDistance * ArrivalDistance);
 }
 

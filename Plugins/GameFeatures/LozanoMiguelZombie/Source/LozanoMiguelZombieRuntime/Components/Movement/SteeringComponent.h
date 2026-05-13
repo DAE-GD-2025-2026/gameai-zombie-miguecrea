@@ -20,9 +20,14 @@ protected:
 	virtual void BeginPlay() override;
 	void RenderPath();
 
-	
-	ASurvivorAIController * m_AIController;
-	APawn * m_PawnOwner;
+	// Lazy controller resolve. Returns null until the pawn has been
+	// possessed by an ASurvivorAIController. Once resolved, performs the
+	// one-time controller configuration (focus clears, rotation flags)
+	// and caches the pointer.
+	ASurvivorAIController * GetAI();
+
+	ASurvivorAIController * m_AIController = nullptr;
+	APawn * m_PawnOwner = nullptr;
 	FNavPathSharedPtr  m_NavPath;
 	
 	

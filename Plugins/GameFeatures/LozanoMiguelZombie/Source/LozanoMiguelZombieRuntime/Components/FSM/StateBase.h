@@ -80,9 +80,7 @@ protected:
 	virtual void OnTick_Implementation(float DeltaTime, AActor * Owner) override;
 	virtual void OnExit_Implementation(AActor * Owner) override;
 
-	// --- Tuning -----------------------------------------------------------
-	// World bounds used to generate the patrol rings. Replace with a world
-	// subsystem / data asset later if other systems need them.
+	
 	UPROPERTY(EditDefaultsOnly, Category="Wander")
 	FVector WorldCenter = FVector::ZeroVector;
 
@@ -108,7 +106,6 @@ protected:
 private:
 	struct FPatrolPoint
 	{
-		FColor Color{FColor::Red};
 		FVector Location = FVector::ZeroVector;
 		bool    bVisited = false;
 	};

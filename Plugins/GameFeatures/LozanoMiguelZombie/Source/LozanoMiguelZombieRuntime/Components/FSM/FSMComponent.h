@@ -23,7 +23,7 @@ class LOZANOMIGUELZOMBIERUNTIME_API UFSMComponent : public UActorComponent
 	GENERATED_BODY()
 public:
 	UFSMComponent();
-
+	
 	UPROPERTY()
 	TMap<FName, TObjectPtr<UStateBase>> States;
 
@@ -35,8 +35,11 @@ public:
 	UPROPERTY(EditAnywhere, Category="FSM|Debug")
 	bool bLogTransitions = false;
 
-protected:
+protected: 
+	  void InitializeComponent() override;
+	
 	virtual void BeginPlay() override;
+	
 
 public:
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType,
@@ -63,4 +66,10 @@ private:
 	UBlackboardComponent * ResolveBlackboard() const;
 	bool EvaluateTransition(const FFSMTransition & T, UBlackboardComponent* BB) const;
 	void TransitionTo(FName To);
+
+	// Runs one frame after BeginPlay. GameFeatureAction_AddComponents adds
+	// sibling components one by one; by next tick every component in the
+	// action's list is present, so this is the first safe moment to wire
+	// cross-component references and activate the initial state.
+	void DeferredInit();
 };
