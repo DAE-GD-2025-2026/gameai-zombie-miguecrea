@@ -7,6 +7,8 @@
 #include "TimerManager.h"
 #include "StateBase.h"
 #include "../Movement/SteeringComponent.h"
+#include "../StudentPerceptor/StudentPerceptor.h"
+#include "LozanoMiguelZombieRuntime/Components/BlackBoard/BBKeys.h"
 
 UFSMComponent::UFSMComponent()
 {
@@ -26,6 +28,7 @@ void UFSMComponent::BeginPlay()
 
 	UE_LOG(LogTemp, Warning, TEXT("[FSM] BeginPlay on %s — scheduling deferred init."),
 		*GetNameSafe(GetOwner()));
+	
 	if (UWorld * W = GetWorld())
 	{
 		W->GetTimerManager().SetTimerForNextTick(
@@ -37,7 +40,9 @@ void UFSMComponent::DeferredInit()
 {
 	AActor* Owner = GetOwner();
 	if (!Owner) return;
-
+	
+		Blackboard = ResolveBlackboard();
+	
 	// Sanity-check the sibling we care about — should be present now.
 	USteeringComponent * Steering = Owner->FindComponentByClass<USteeringComponent>();
 	if (!Steering)
@@ -47,9 +52,83 @@ void UFSMComponent::DeferredInit()
 			*GetNameSafe(Owner));
 	}
 
-	UWanderState* Wander = NewObject<UWanderState>(this);
+	// ADD THE FACT THAT MEMORY TICKS BEFORE STATE MACHINE 
+	UStudentPerceptor * memory = Owner->FindComponentByClass<UStudentPerceptor>();
+	PrimaryComponentTick.AddPrerequisite(
+	memory,
+	memory->PrimaryComponentTick
+     );
+	
+	
+	UWanderState * Wander = NewObject<UWanderState>(this);
+	ULootState * Loot = NewObject<ULootState>(this);
+	
 	RegisterState(Wander->GetStateName(), Wander);
-
+	RegisterState(Loot->GetStateName(),Loot);
+	
+	FFSMTransition WanderToLoot;
+	WanderToLoot.From = Wander->GetStateName();
+	WanderToLoot.To   = Loot->GetStateName();
+	WanderToLoot.Predicate = [](UBlackboardComponent * BB) 
+	{
+		const FBlackboard::FKey KeyID =
+		BB->GetKeyID(BBKeys::bArrivedAtInterestPoint);
+		if (KeyID == FBlackboard::InvalidKey)
+		{
+			UE_LOG(LogTemp, Error,
+				TEXT("Blackboard key bTargetVisible does not exist"));
+			return false;
+		}
+		return BB->GetValueAsBool(BBKeys::bArrivedAtInterestPoint);
+	};
+	
+	
+	FFSMTransition ToLootWander;
+	ToLootWander.From = Loot->GetStateName();
+	ToLootWander.To   = Wander->GetStateName();
+	ToLootWander.Predicate = [](UBlackboardComponent * BB) 
+	{
+		const FBlackboard::FKey KeyID =
+		BB->GetKeyID(BBKeys::bLootDone);
+		if (KeyID == FBlackboard::InvalidKey)
+		{
+			UE_LOG(LogTemp, Error,
+				TEXT("Blackboard key bTargetVisible does not exist"));
+			return false;
+		}
+		return BB->GetValueAsBool(BBKeys::bLootDone);
+	};
+	
+	
+	
+	//if there is more than one way of transitioning From one state to Another first one would
+	//have higher priority
+	AddTransition(WanderToLoot);  // 
+	AddTransition(ToLootWander);  // 
+	
+	
+	
+	//FTimerHandle TestHandle;
+	
+	// GetWorld()->GetTimerManager().SetTimer(
+	// TestHandle,
+	// this,
+	// &UFSMComponent::TestFunctionStateMachine,
+	// 5.0f,
+	// false
+//);
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	////////////////////////////////
+	
 	if (InitialState.IsNone())
 		InitialState = Wander->GetStateName();
 
@@ -64,6 +143,21 @@ void UFSMComponent::DeferredInit()
 	TransitionTo(InitialState);
 }
 
+void UFSMComponent::TestFunctionStateMachine()
+{
+	
+	
+	// UE_LOG(LogTemp,Warning,TEXT("TestFunctionStateMachine"));
+	// if (Blackboard.Get())
+	// {
+	// Blackboard->SetValueAsBool(TEXT("bTargetVisible"),true);
+	// }
+	// else
+	// {
+	// 	UE_LOG(LogTemp,Error,TEXT("Blackboard Is Null"));
+	// }
+}
+
 void UFSMComponent::TickComponent(float DeltaTime, ELevelTick TickType,
                                   FActorComponentTickFunction* ThisTickFunction)
 {
@@ -73,19 +167,11 @@ void UFSMComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 		return;
 
 	AActor * Owner = GetOwner();
-
-	UBlackboardComponent* BB = Blackboard.Get();
-	if (!BB)
+	
+	for (const FFSMTransition & T : Transitions)
 	{
-		// Controller may possess after our BeginPlay — retry until found
-		BB = ResolveBlackboard();
-		Blackboard = BB;
-	}
-
-
-	for (const FFSMTransition& T : Transitions)
-	{
-		if (T.From == CurrentStateName && EvaluateTransition(T, BB))
+		// if Evaluates to true switches to State
+		if (T.From == CurrentStateName && EvaluateTransition(T,Blackboard.Get()))
 		{
 			TransitionTo(T.To);
 			return;
@@ -112,12 +198,11 @@ void UFSMComponent::ForceTransition(FName To)
 	TransitionTo(To);
 }
 
-UBlackboardComponent* UFSMComponent::ResolveBlackboard() const
+UBlackboardComponent * UFSMComponent::ResolveBlackboard() const
 {
 	APawn* Pawn = Cast<APawn>(GetOwner());
 	if (!Pawn) return nullptr;
-	AAIController* AI = Cast<AAIController>(Pawn->GetController());
-
+	AAIController * AI = Cast<AAIController>(Pawn->GetController());
 	return AI ? AI->GetBlackboardComponent() : nullptr;
 }
 
@@ -144,8 +229,7 @@ void UFSMComponent::TransitionTo(FName To)
 
 	if (bLogTransitions)
 	{
-		UE_LOG(LogTemp, Log, TEXT("[FSM:%s] %s -> %s"),
-		       *GetNameSafe(Owner), *PrevName.ToString(), *To.ToString());
+		UE_LOG(LogTemp, Log, TEXT("[FSM:%s] %s -> %s"),*GetNameSafe(Owner), *PrevName.ToString(), *To.ToString());
 	}
 }
 
