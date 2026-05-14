@@ -5,10 +5,10 @@
 #include "BehaviorTree/BlackboardComponent.h"
 #include "GameFramework/Pawn.h"
 
-#include "../Memory/MemoryComponent.h"
 #include "../Movement/SteeringComponent.h"
 #include "../BlackBoard/BBKeys.h"
 #include "../MACROS/DebugMacro.h"
+#include "../StudentPerceptor/StudentPerceptor.h"
 
 
 // ============================================================================
@@ -38,7 +38,10 @@ UWanderState::UWanderState()
 
 void UWanderState::OnInit()
 {
-	Memory   = GetSibling<UMemoryComponent>();
+	
+	// I COUld have Components that are needed in multiple States IN FSM 
+	//otherwise theywill be local to state in case only that State uses it 
+	Memory   = GetSibling<UStudentPerceptor>();
 	Steering = GetSibling<USteeringComponent>();
 	BuildPatrolGrid();
 }
@@ -47,6 +50,8 @@ void UWanderState::OnEnter_Implementation(AActor * Owner)
 {
 	UE_LOG(LogTemp,Warning,TEXT(" Wander State Entered"))
 	RepickTimer = RepickInterval;
+	
+	Steering->OnMoveCompleted.AddDynamic(this, &UWanderState::HandleArrived);
 	PickNewTarget(Owner);
 }
 
@@ -57,8 +62,6 @@ void UWanderState::VisualizeWanderPoints()
 		const float Radius = RadiusStep * RingNumber;
 		DRAW_CIRCLE(GetWorld(), FVector{}, Radius, FColor::Blue, 3.f);
 	}
-
-
 	for (const auto& Point : PatrolPoints)
 	{
 		const FColor DrawColor =
@@ -77,7 +80,7 @@ void UWanderState::VisualizeWanderPoints()
 void UWanderState::OnTick_Implementation(float DeltaTime, AActor * Owner)
 {
 	if (!Owner) return;
-	
+
 	VisualizeWanderPoints();
 	
 	//
@@ -89,11 +92,38 @@ void UWanderState::OnTick_Implementation(float DeltaTime, AActor * Owner)
 	// 	PickNewTarget(Owner);
 	// 	RepickTimer = RepickInterval;
 	// }
+
 }
 
 void UWanderState::OnExit_Implementation(AActor * Owner)
 {
-	// Leave PatrolPoints intact across re-entries — keeping our progress.
+	Steering->OnMoveCompleted.RemoveDynamic(this, &UWanderState::HandleArrived);
+}
+
+
+void UWanderState::HandleArrived(bool bSucceeded)
+{
+	if (!bSucceeded) UE_LOG(LogTemp,Error,TEXT("Arrived Not Succeded"));
+
+	switch (m_ReasonToMove)
+	{
+	case EReasonToMove::Loot:
+		
+		UE_LOG(LogTemp,Warning,TEXT("Looting"));
+		
+		break;
+	case EReasonToMove::Explore:
+		
+		UE_LOG(LogTemp,Warning,TEXT("Explored"));
+		
+		break;
+	default:
+		break;
+	}
+	
+	
+	AdvancePatrol();
+	PickNewTarget(GetOwnerActor());
 }
 
 
@@ -111,12 +141,21 @@ void UWanderState::PickNewTarget(AActor * Owner)
 	//        return;
 	//    }
 
+
 	// 2. Fallback: the next patrol point on the concentric grid.
 	if (PatrolPoints.IsValidIndex(CurrentPatrolIdx))
 	{
 		CurrentDestination = PatrolPoints[CurrentPatrolIdx].Location;
-		Steering->Move(CurrentDestination);
-		//WriteDestinationToBlackboard(CurrentDestination);
+		if (Steering.IsValid())
+		{
+			Steering->Move(CurrentDestination);
+			m_ReasonToMove = EReasonToMove::Explore;
+		
+		}
+		else
+		{
+			UE_LOG(LogTemp, Error, TEXT("[Wander] Steering ref is null — cannot Move."));
+		}
 	}
 }
 
@@ -140,13 +179,6 @@ void UWanderState::AdvancePatrol()
 	}
 }
 
-bool UWanderState::ArrivedAtTarget(AActor * Owner) const
-{
-	if (!Owner) return false;
-	const float DistSq = FVector::DistSquared(Owner->GetActorLocation(),CurrentDestination);
-	return DistSq <= (ArrivalDistance * ArrivalDistance);
-}
-
 void UWanderState::WriteDestinationToBlackboard(const FVector & Destination) const
 {
 	if (!FSM.IsValid()) return;
@@ -163,8 +195,6 @@ void UWanderState::WriteDestinationToBlackboard(const FVector & Destination) con
 		UE_LOG(LogTemp,Error, TEXT("DestinationKey is not set"));
 	}
 }
-
-
 void UWanderState::BuildPatrolGrid()
 {
 	PatrolPoints.Reset();
@@ -214,7 +244,12 @@ ULootState::ULootState()
 
 void ULootState::OnEnter_Implementation(AActor* Owner)
 {
-	UE_LOG(LogTemp,Warning, TEXT("ULootState OnEnter "));
+
+	UE_LOG(LogTemp,Warning, TEXT("ULoot State OnEnter "));
+	//Grab The Item Set it on The blackBoard 
+	//wait 2 seconds while looting 
+	//Stop the Rotating ?
+	
 }
 void ULootState::OnTick_Implementation(float DeltaTime, AActor* Owner)
 {
@@ -223,5 +258,6 @@ void ULootState::OnTick_Implementation(float DeltaTime, AActor* Owner)
 
 void ULootState::OnExit_Implementation(AActor * Owner)
 {
+	//make it rotate again 
 }
 
