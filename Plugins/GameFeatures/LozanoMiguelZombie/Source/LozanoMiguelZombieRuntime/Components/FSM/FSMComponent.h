@@ -33,7 +33,7 @@ public:
 	TArray<FFSMTransition> Transitions;
 
 	UPROPERTY(EditAnywhere, Category="FSM|Debug")
-	bool bLogTransitions = false;
+	bool bLogTransitions = true;
 
 protected: 
 	  void InitializeComponent() override;
@@ -66,10 +66,8 @@ private:
 	UBlackboardComponent * ResolveBlackboard() const;
 	bool EvaluateTransition(const FFSMTransition & T, UBlackboardComponent* BB) const;
 	void TransitionTo(FName To);
-
-	// Runs one frame after BeginPlay. GameFeatureAction_AddComponents adds
-	// sibling components one by one; by next tick every component in the
-	// action's list is present, so this is the first safe moment to wire
-	// cross-component references and activate the initial state.
+	
+	
 	void DeferredInit();
+	void TestFunctionStateMachine();
 };

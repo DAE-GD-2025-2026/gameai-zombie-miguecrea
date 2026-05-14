@@ -20,7 +20,7 @@ namespace BBKeys
 	
 	
 	// ---- Perception flags (set by UStudentPerceptor) ----------------------
-	inline const FName bTargetVisible (TEXT("bTargetVisible"));
+	inline const FName bArrivedAtInterestPoint (TEXT("bArrivedAtInterestPoint"));
 	inline const FName bThreatNearby  (TEXT("bThreatNearby"));
 	inline const FName ThreatLocation (TEXT("ThreatLocation"));
 	inline const FName DistanceToTarget(TEXT("DistanceToTarget"));

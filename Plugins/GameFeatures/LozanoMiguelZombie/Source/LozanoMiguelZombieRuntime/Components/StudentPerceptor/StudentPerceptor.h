@@ -12,19 +12,41 @@
 
 
 class ASurvivorPawn;
+
+class UAIPerceptionComponent;
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class LOZANOMIGUELZOMBIERUNTIME_API UStudentPerceptor : public UActorComponent
 {
 	GENERATED_BODY()
-
-public:
-
-	UStudentPerceptor();
-
-	virtual void BeginPlay() override;
-
-	UFUNCTION()
-	virtual void OnPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus);
+	
+	
+private:
+	UAIPerceptionComponent * m_PerceptionComponent;
 
 	ASurvivorPawn * m_SurvivorPawn = nullptr;
+public:
+	UStudentPerceptor();
+	virtual void BeginPlay() override;
+	void TickComponent(
+	float DeltaTime,
+	ELevelTick TickType,
+	FActorComponentTickFunction* ThisTickFunction) override;
+
+///////
+	UFUNCTION()
+	virtual void OnPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus);
+	
+	UFUNCTION()
+	void OnTargetForgotten(AActor* Actor);
+	
+	void DeferredInit();
+	
+	TArray<AActor*> GetSeenActorsInMemory();
+	TArray<AActor*> GetActorsOnFOV();
+	void ForgetActorsFromMemory(AActor * Actor);
+	
+	
+
+
+	
 };

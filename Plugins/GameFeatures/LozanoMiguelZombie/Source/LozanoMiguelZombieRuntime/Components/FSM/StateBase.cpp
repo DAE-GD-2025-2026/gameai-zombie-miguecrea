@@ -80,14 +80,6 @@ void UWanderState::OnTick_Implementation(float DeltaTime, AActor * Owner)
 	
 	VisualizeWanderPoints();
 	
-	 if (ArrivedAtTarget(Owner))
-	 {
-	 	
-	 	UE_LOG(LogTemp,Warning,TEXT("aRRIVED"))
-	 	AdvancePatrol();
-	 	PickNewTarget(Owner);
-	 	return;
-	 }
 	//
 	// // Periodic re-evaluation: even mid-walk, change our mind if a better
 	// // memory target appeared (e.g., a perceived item).
@@ -111,10 +103,7 @@ void UWanderState::PickNewTarget(AActor * Owner)
 {
 	if (!Owner) return;
 	
-	// 1. Prefer a high-value unvisited memory target if Memory exposes one.
-	//    Memory is intentionally minimal right now; replace this hook with a
-	//    proper utility-scored picker once UMemoryComponent grows that API:
-	//
+	
 	//    if (AActor* Item = Memory->FindBestUnvisitedTarget(Needs.Get()))
 	//    {
 	//        CurrentDestination = Item->GetActorLocation();
@@ -225,7 +214,7 @@ ULootState::ULootState()
 
 void ULootState::OnEnter_Implementation(AActor* Owner)
 {
-	UE_LOG(LogTemp,Warning, TEXT("UWanderState OnEnter "));
+	UE_LOG(LogTemp,Warning, TEXT("ULootState OnEnter "));
 }
 void ULootState::OnTick_Implementation(float DeltaTime, AActor* Owner)
 {

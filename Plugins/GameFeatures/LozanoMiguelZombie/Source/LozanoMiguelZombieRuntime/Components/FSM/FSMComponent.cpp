@@ -148,3 +148,23 @@ void UFSMComponent::TransitionTo(FName To)
 		       *GetNameSafe(Owner), *PrevName.ToString(), *To.ToString());
 	}
 }
+
+
+// static auto MakeBoolPredicate = [](FName Key)
+// {
+// 	return [Key](UBlackboardComponent* BB) -> bool
+// 	{
+// 		if (!BB) return false;
+// 		const FBlackboard::FKey ID = BB->GetKeyID(Key);
+// 		if (ID == FBlackboard::InvalidKey)
+// 		{
+// 			UE_LOG(LogTemp, Error, TEXT("Blackboard key %s missing"), *Key.ToString());
+// 			return false;
+// 		}
+// 		return BB->GetValueAsBool(Key);
+// 	};
+// };
+//
+// WanderToLoot.Predicate = MakeBoolPredicate(BBKeys::bArrivedAtInterestPoint);
+// ToLootWander.Predicate = MakeBoolPredicate(BBKeys::bLootDone);
+//

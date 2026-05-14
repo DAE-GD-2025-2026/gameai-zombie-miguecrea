@@ -11,6 +11,7 @@
 #include "TimerManager.h"
 #include "../SpectatorComponent/SpectatorFollowComponent.h"
 #include "../MACROS/DebugMacro.h"
+#include "Survivor/SurvivorPawn.h"
 
 USteeringComponent::USteeringComponent()
 {
@@ -44,7 +45,7 @@ void USteeringComponent::Move(const FVector & ToLocation)
 	{
 	case EPathFollowingRequestResult::RequestSuccessful:
 
-		UE_LOG(LogTemp, Warning, TEXT("Survivor AI Controller Succesfull"));
+		//UE_LOG(LogTemp, Warning, TEXT("Survivor AI Controller Succesfull"));
 		break;
 	case EPathFollowingRequestResult::AlreadyAtGoal:
 
@@ -55,6 +56,7 @@ void USteeringComponent::Move(const FVector & ToLocation)
 		UE_LOG(LogTemp, Error, TEXT("Survivor AI Controller Failed"));
 		break;
 	}
+	
 }
 
 void USteeringComponent::BeginPlay()
@@ -89,7 +91,21 @@ ASurvivorAIController * USteeringComponent::GetAI()
 	m_AIController->ClearFocus(EAIFocusPriority::Default);  // remove baseline
 	m_AIController->ClearFocus(EAIFocusPriority::Move);     // remove move-driven
 
+	// Forward MoveTo completion events to our own delegate. AddUniqueDynamic
+	// guards against double-binding if GetAI() is ever called twice through
+	// some weird code path (it shouldn't, given the m_AIController early-out
+	// above, but cheap insurance).
+	m_AIController->ReceiveMoveCompleted.AddUniqueDynamic(
+		this, &USteeringComponent::HandleAIMoveCompleted);
+
 	return m_AIController;
+}
+
+void USteeringComponent::HandleAIMoveCompleted(FAIRequestID /*RequestID*/,
+                                               EPathFollowingResult::Type Result)
+{
+	const bool bSucceeded = (Result == EPathFollowingResult::Success);
+	OnMoveCompleted.Broadcast(bSucceeded);
 }
 
 void USteeringComponent::RenderPath()

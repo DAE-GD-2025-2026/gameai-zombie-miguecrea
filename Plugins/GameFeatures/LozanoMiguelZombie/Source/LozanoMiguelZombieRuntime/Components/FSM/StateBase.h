@@ -6,8 +6,8 @@
 #include "StateBase.generated.h"
 
 class UFSMComponent;
-class UMemoryComponent;
 class USteeringComponent;
+class UStudentPerceptor;
 
 UCLASS(Abstract, Blueprintable, EditInlineNew)
 class LOZANOMIGUELZOMBIERUNTIME_API UStateBase : public UObject
@@ -15,20 +15,12 @@ class LOZANOMIGUELZOMBIERUNTIME_API UStateBase : public UObject
 	GENERATED_BODY()
 public:
 	UStateBase();
-
-	// Called by the FSM during RegisterState. Hands the state a back-ref it can
-	// use to reach the owning actor and sibling components, then invokes the
-	// one-time OnInit hook so subclasses can cache anything that won't change
-	// across state activations.
+	
 	void Init(UFSMComponent * InFSM)
 	{
 		FSM = InFSM;
 		OnInit();
 	}
-
-	// Override in subclasses for one-time setup (caching sibling components,
-	// building static lookup tables, etc.). Runs once per state lifetime, not
-	// per entry. Called *after* FSM is set, so GetSibling<T>() is safe here.
 	virtual void OnInit() {}
 
 	FName GetStateName() const { return m_StateName; }
@@ -66,6 +58,16 @@ protected:
 };
 
 
+
+
+
+UENUM(BlueprintType)
+enum class EReasonToMove : uint8
+{
+	Loot,
+	Explore
+};
+
 UCLASS()
 class LOZANOMIGUELZOMBIERUNTIME_API UWanderState : public UStateBase
 {
@@ -79,8 +81,14 @@ protected:
 	void VisualizeWanderPoints();
 	virtual void OnTick_Implementation(float DeltaTime, AActor * Owner) override;
 	virtual void OnExit_Implementation(AActor * Owner) override;
-
 	
+	
+	EReasonToMove m_ReasonToMove;
+	
+
+	UFUNCTION()
+	void HandleArrived(bool bSucceeded);
+
 	UPROPERTY(EditDefaultsOnly, Category="Wander")
 	FVector WorldCenter = FVector::ZeroVector;
 
@@ -116,13 +124,12 @@ private:
 	float  RepickTimer      = 0.f;
 	FVector CurrentDestination = FVector::ZeroVector;
 
-	TWeakObjectPtr<UMemoryComponent>   Memory;
+	TWeakObjectPtr<UStudentPerceptor>  Memory;
 	TWeakObjectPtr<USteeringComponent> Steering;
 
 	void BuildPatrolGrid();
 	void PickNewTarget(AActor* Owner);
 	void AdvancePatrol();
-	bool ArrivedAtTarget(AActor* Owner) const;
 	void WriteDestinationToBlackboard(const FVector& Destination) const;
 };
 
