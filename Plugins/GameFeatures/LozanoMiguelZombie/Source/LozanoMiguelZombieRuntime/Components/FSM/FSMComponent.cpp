@@ -62,9 +62,13 @@ void UFSMComponent::DeferredInit()
 	
 	UWanderState * Wander = NewObject<UWanderState>(this);
 	ULootState * Loot = NewObject<ULootState>(this);
+	UCombatState * Combat = NewObject<UCombatState>(this);
+	UFleeState * Flee = NewObject<UFleeState>(this);
 	
 	RegisterState(Wander->GetStateName(), Wander);
 	RegisterState(Loot->GetStateName(),Loot);
+	RegisterState(Combat->GetStateName(),Combat);
+	RegisterState(Flee->GetStateName(),Flee);
 	
 	FFSMTransition WanderToLoot;
 	WanderToLoot.From = Wander->GetStateName();
@@ -105,28 +109,6 @@ void UFSMComponent::DeferredInit()
 	//have higher priority
 	AddTransition(WanderToLoot);  // 
 	AddTransition(ToLootWander);  // 
-	
-	
-	
-	//FTimerHandle TestHandle;
-	
-	// GetWorld()->GetTimerManager().SetTimer(
-	// TestHandle,
-	// this,
-	// &UFSMComponent::TestFunctionStateMachine,
-	// 5.0f,
-	// false
-//);
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
 	////////////////////////////////
 	
 	if (InitialState.IsNone())
@@ -217,7 +199,7 @@ void UFSMComponent::TransitionTo(FName To)
 	if (!Found || !*Found)
 		return;
 
-	AActor* Owner = GetOwner();
+	AActor * Owner = GetOwner();
 
 	if (CurrentState)
 		CurrentState->OnExit(Owner);

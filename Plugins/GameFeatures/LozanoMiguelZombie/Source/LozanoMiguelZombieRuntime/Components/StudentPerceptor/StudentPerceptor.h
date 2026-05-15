@@ -8,10 +8,35 @@
 #include "Perception/AISenseConfig_Sight.h"
 #include "Perception/AISenseConfig_Damage.h"
 #include "Perception/AISense_Damage.h"
+#include "Items/ItemType.h"
 #include "StudentPerceptor.generated.h"
 
 
 class ASurvivorPawn;
+
+USTRUCT(BlueprintType)
+struct FInterestPoint
+{
+	GENERATED_BODY()
+
+	// Weak so this struct doesn't keep destroyed items alive. Callers must
+	// check .IsValid() before dereferencing — anything that read raw Actor*
+	// before is a potential dangling-pointer crash if the item gets picked
+	// up by another survivor or otherwise despawns.
+	UPROPERTY()
+	TWeakObjectPtr<AActor> Actor;
+
+	UPROPERTY()
+	bool m_Visited = false;
+
+
+	bool operator==(const FInterestPoint& Other) const
+	{
+		// TWeakObjectPtr::operator== compares the underlying object identity
+		// (and the SerialNumber), so AddUnique still de-dupes correctly.
+		return Actor == Other.Actor;
+	}
+};
 
 class UAIPerceptionComponent;
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
@@ -41,12 +66,38 @@ public:
 	
 	void DeferredInit();
 	
-	TArray<AActor*> GetSeenActorsInMemory();
+	std::optional<FInterestPoint>GetBestInterestPoint();
+	
+	float GetItemBaseUtility(EItemType type);
+	float GetHouseBaseUtility();
+	float ApplyContextModifier(float base,const EItemType & ItemType);
+
+	// True iff the survivor's inventory currently contains any weapon
+	// (Pistol or Shotgun). Used by ApplyContextModifier to boost weapon
+	// utility when the survivor is unarmed.
+	bool SurvivorHasWeapon() const;
+
+	// Hard cutoff for distance falloff. Items further than this contribute
+	// zero utility — used so the survivor doesn't path across the map for a
+	// trivial pickup.
+	UPROPERTY(EditDefaultsOnly, Category = "Utility")
+	float MaxConsiderDistance = 5000.f;
+
+	FColor PulsingColor1 = FColor::Blue;
+	FColor PulsingColor2 = FColor::Yellow;
+	FColor * CurrentColor =  &PulsingColor1;
+	
+	void ChangeColor();
+	
+	TArray<FInterestPoint> m_UnvisitedInterestPointsInBrain;
+	
+	TArray<AActor*> GetSeenActorsInMemory(); 
 	TArray<AActor*> GetActorsOnFOV();
 	void ForgetActorsFromMemory(AActor * Actor);
 	
-	
+private:
 
-
-	
+	class UHealthComponent    * m_Health    = nullptr;
+	class UStaminaComponent   * m_Stamina   = nullptr;
+	class UInventoryComponent * m_Inventory = nullptr;
 };

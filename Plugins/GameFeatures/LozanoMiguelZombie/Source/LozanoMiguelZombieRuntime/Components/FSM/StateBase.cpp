@@ -111,6 +111,16 @@ void UWanderState::HandleArrived(bool bSucceeded)
 		
 		UE_LOG(LogTemp,Warning,TEXT("Looting"));
 		
+		
+		
+		//Set Keys -> Item
+		//forget it from Unvisite iTEMS 
+		//USE THE KEYS TO TELL state forget Item 
+		//Set Has To InterestPoint to true ;
+		// This Will Set State 
+		//need to forget this itme not for later but into the Items That I have seen 
+		//GrabTheItem On Loot
+		
 		break;
 	case EReasonToMove::Explore:
 		
@@ -120,7 +130,6 @@ void UWanderState::HandleArrived(bool bSucceeded)
 	default:
 		break;
 	}
-	
 	
 	AdvancePatrol();
 	PickNewTarget(GetOwnerActor());
@@ -134,14 +143,10 @@ void UWanderState::PickNewTarget(AActor * Owner)
 	if (!Owner) return;
 	
 	
-	//    if (AActor* Item = Memory->FindBestUnvisitedTarget(Needs.Get()))
-	//    {
-	//        CurrentDestination = Item->GetActorLocation();
-	//        WriteDestinationToBlackboard(CurrentDestination);
-	//        return;
-	//    }
-
-
+	    // Memory->FindBes
+	    // Steering->Move(CurrentDestination);
+	    // m_ReasonToMove = EReasonToMove::Loot;
+	    //
 	// 2. Fallback: the next patrol point on the concentric grid.
 	if (PatrolPoints.IsValidIndex(CurrentPatrolIdx))
 	{
@@ -150,7 +155,6 @@ void UWanderState::PickNewTarget(AActor * Owner)
 		{
 			Steering->Move(CurrentDestination);
 			m_ReasonToMove = EReasonToMove::Explore;
-		
 		}
 		else
 		{
@@ -246,17 +250,87 @@ void ULootState::OnEnter_Implementation(AActor* Owner)
 {
 
 	UE_LOG(LogTemp,Warning, TEXT("ULoot State OnEnter "));
+	
+	
+	//REMEMBER MEMORY FOR NOW HAS ALL OF THE ITEMS
+	//when we grab an iTem it needs to be deeted from Memory 
+	//both Unvisted and from the overall that remembers everything 
+	
+	//FROM ITEMS WE GRAB WE NEED TO DELETE THEM FROM 
+	//BOTH MEMORY OF EVERYTHING AND MEMORY OF WHAT WE HAVE NOT VISITED 
+	
+	//grab Item we set on the BlackBoard it is a House 
+	//handle different 
 	//Grab The Item Set it on The blackBoard 
 	//wait 2 seconds while looting 
 	//Stop the Rotating ?
+	//Maybe chnage Items With better Value 
 	
 }
 void ULootState::OnTick_Implementation(float DeltaTime, AActor* Owner)
 {
-	
+	/// LOOK AROUND THAT there is no ZOMBIES
 }
 
 void ULootState::OnExit_Implementation(AActor * Owner)
+{
+	//make it rotate again 
+}
+
+
+void UCombatState::OnInit()
+{
+	
+}
+
+UCombatState::UCombatState()
+	: UStateBase()
+{
+}
+
+void UCombatState::OnEnter_Implementation(AActor* Owner)
+{
+	UE_LOG(LogTemp,Warning, TEXT("UCombat State OnEnter "));
+	
+}
+void UCombatState::OnTick_Implementation(float DeltaTime, AActor* Owner)
+{
+	
+	//GO ON ZIG ZAG WHILE looking at the Zombies And Shooting Them 1 by One 
+	//Add A grenade 
+}
+
+void UCombatState::OnExit_Implementation(AActor * Owner)
+{
+	//make it rotate again 
+}
+
+///////////////////////////////
+
+
+void UFleeState::OnInit()
+{
+	
+}
+
+UFleeState::UFleeState()
+	: UStateBase()
+{
+}
+
+void UFleeState::OnEnter_Implementation(AActor* Owner)
+{
+	UE_LOG(LogTemp,Warning, TEXT("UFlee State OnEnter "));
+	
+}
+void UFleeState::OnTick_Implementation(float DeltaTime, AActor* Owner)
+{
+	
+	//GO ON ZIG ZAG WHILE looking at the Zombies And Shooting Them 1 by One 
+	//Add A grenade 
+}
+
+void UFleeState::OnExit_Implementation(AActor * Owner)
 {
 	//make it rotate again 
 }
