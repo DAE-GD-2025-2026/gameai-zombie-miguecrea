@@ -69,7 +69,7 @@ void UStudentPerceptor::DeferredInit()
 }
 
 void UStudentPerceptor::TickComponent(float DeltaTime, ELevelTick TickType,
-                                      FActorComponentTickFunction* ThisTickFunction)
+                                      FActorComponentTickFunction * ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
@@ -93,13 +93,17 @@ void UStudentPerceptor::OnPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus)
 		{
 			if (Cast<AHouse>(Actor) || Cast<ABaseItem>(Actor))
 			{
+			ABaseItem * Item = Cast<ABaseItem>(Actor);
+				
+				if (Item && Item->GetItemType() == EItemType::Garbage) return;
+				
 				FInterestPoint InterestPoint;
 				InterestPoint.Actor = Actor;
 				InterestPoint.m_Visited = false;
 				m_UnvisitedInterestPointsInBrain.AddUnique(InterestPoint);
 
 				auto NumberInterestPointsInMemory = m_UnvisitedInterestPointsInBrain.Num();
-				UE_LOG(LogTemp, Warning, TEXT("Interest points: %i"), NumberInterestPointsInMemory);
+				//UE_LOG(LogTemp, Warning, TEXT("Interest points: %i"), NumberInterestPointsInMemory);
 			}
 			//No Zombies or purgeZonesYet
 		}
@@ -128,52 +132,55 @@ void UStudentPerceptor::OnTargetForgotten(AActor* Actor)
 {
 }
 
-std::optional<FInterestPoint> UStudentPerceptor::GetBestInterestPoint()
+
+FInterestPoint * UStudentPerceptor::GetBestInterestPoint()
 {
-	std::optional<FInterestPoint> BestInterestPoint;
+	FInterestPoint * BestInterestPoint = nullptr;
 
 	if (m_UnvisitedInterestPointsInBrain.IsEmpty())
-		return BestInterestPoint;
+		return nullptr;
 
 	AActor* OwnerActor = GetOwner();
 	const FVector MyLoc = OwnerActor ? OwnerActor->GetActorLocation() : FVector::ZeroVector;
 
-	float bestScore = 0.f;
-	for (const FInterestPoint& InterestPoint : m_UnvisitedInterestPointsInBrain)
+	float BestScore = 0.f;
+
+	for (FInterestPoint & InterestPoint : m_UnvisitedInterestPointsInBrain)
 	{
 		if (InterestPoint.m_Visited)
 			continue;
 
 		AActor* Target = InterestPoint.Actor.Get();
 		if (!Target)
-			continue; // entry has expired — actor was destroyed since the sighting
+			continue;
 
-		float score = 0.f;
+		float Score = 0.f;
+
 		if (Cast<AHouse>(Target))
 		{
-			score = GetHouseBaseUtility();
+			Score = GetHouseBaseUtility();
 		}
 		else if (ABaseItem* Item = Cast<ABaseItem>(Target))
 		{
-			const EItemType itemType = Item->GetItemType();
-			score = GetItemBaseUtility(itemType);
-			score = ApplyContextModifier(score, itemType);
+			const EItemType ItemType = Item->GetItemType();
+
+			Score = GetItemBaseUtility(ItemType);
+			Score = ApplyContextModifier(Score, ItemType);
 		}
 
-		// Distance falloff. Linear ramp from 1.0 at your feet to 0.0 at
-		// MaxConsiderDistance. Anything past the cutoff scores zero and is
-		// ignored, so the survivor doesn't waste time chasing far-away
-		// pickups when something closer exists.
 		const float Dist = FVector::Dist(MyLoc, Target->GetActorLocation());
-		const float DistFalloff = FMath::Clamp(1.f - Dist / MaxConsiderDistance, 0.f, 1.f);
-		score *= DistFalloff;
+		const float DistFalloff =
+			FMath::Clamp(1.f - Dist / MaxConsiderDistance, 0.f, 1.f);
 
-		if (score > bestScore)
+		Score *= DistFalloff;
+
+		if (Score > BestScore)
 		{
-			bestScore = score;
-			BestInterestPoint = InterestPoint;
+			BestScore = Score;
+			BestInterestPoint = &InterestPoint;
 		}
 	}
+
 	return BestInterestPoint;
 }
 
@@ -192,7 +199,7 @@ float UStudentPerceptor::GetItemBaseUtility(EItemType type)
 
 float UStudentPerceptor::GetHouseBaseUtility()
 {
-	return 20.f;
+	return 15.f;
 }
 
 float UStudentPerceptor::ApplyContextModifier(float base, const EItemType& ItemType)

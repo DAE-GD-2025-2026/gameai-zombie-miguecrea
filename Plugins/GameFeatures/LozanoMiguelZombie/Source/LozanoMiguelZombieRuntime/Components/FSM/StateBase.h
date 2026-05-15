@@ -3,7 +3,13 @@
 #include "CoreMinimal.h"
 #include "UObject/Object.h"
 #include "GameFramework/Actor.h"
+#include"InterestPoint.h"
 #include "StateBase.generated.h"
+
+namespace EPathFollowingResult
+{
+	enum Type : int;
+}
 
 class UFSMComponent;
 class USteeringComponent;
@@ -64,6 +70,7 @@ protected:
 UENUM(BlueprintType)
 enum class EReasonToMove : uint8
 {
+	VisitHouse,
 	Loot,
 	Explore
 };
@@ -84,10 +91,12 @@ protected:
 	
 	
 	EReasonToMove m_ReasonToMove;
+	FInterestPoint * m_BestInterest;
 	
 
 	UFUNCTION()
-	void HandleArrived(bool bSucceeded);
+	void HandleArrived(EPathFollowingResult::Type WhatHappened);
+	void GoToPatrolPoint();
 
 	UPROPERTY(EditDefaultsOnly, Category="Wander")
 	FVector WorldCenter = FVector::ZeroVector;
@@ -122,6 +131,7 @@ private:
 	int32  CurrentPatrolIdx = 0;
 	bool   bPatrolReversed  = false;
 	float  RepickTimer      = 0.f;
+	float  ChangeMindTime      = 0.25f;
 	FVector CurrentDestination = FVector::ZeroVector;
 
 	TWeakObjectPtr<UStudentPerceptor>  Memory;
@@ -141,10 +151,75 @@ class LOZANOMIGUELZOMBIERUNTIME_API ULootState : public UStateBase
 public:
 	ULootState();
 protected:
+	// Mini FSM inside the Loot state. Two flows:
+	//   1) 2/3 of entries: AlignToItem -> Looting
+	//   2) 1/3 of entries: ScanAlign -> Scanning -> AlignToItem -> Looting
+	enum class ELootPhase : uint8
+	{
+		ScanAlign,   // rotating to face AWAY from the item
+		Scanning,    // sweeping yaw left/right while facing away (paranoia check)
+		AlignToItem, // rotating to face the item before grabbing
+		Looting      // looking at item, loot timer ticking down
+	};
+
+	TWeakObjectPtr<USteeringComponent>        Steering;
+	TWeakObjectPtr<class UInventoryComponent> Inventory;
+
 	virtual void OnInit() override;
 	virtual void OnEnter_Implementation(AActor * Owner) override;
 	virtual void OnTick_Implementation(float DeltaTime, AActor * Owner) override;
 	virtual void OnExit_Implementation(AActor * Owner) override;
+
+	void ResumeWandering();
+
+	// --- Tuning -------------------------------------------------------------
+
+	// Probability of doing a paranoia scan instead of looting immediately.
+	UPROPERTY(EditDefaultsOnly, Category="Loot", meta=(ClampMin="0.0", ClampMax="1.0"))
+	float ScanProbability = 0.5f;
+
+	// How long the back-facing yaw sweep lasts (seconds).
+	UPROPERTY(EditDefaultsOnly, Category="Loot")
+	float ScanDuration = 2.5f;
+
+	// Maximum yaw offset from the "facing-away" base rotation, in degrees.
+	UPROPERTY(EditDefaultsOnly, Category="Loot")
+	float ScanSweepHalfAngleDeg = 60.f;
+
+	// Angular frequency of the sin sweep, in radians/second. With 3.14
+	// (≈π) the survivor completes one full L→R→L→ cycle per ScanDuration=2s.
+	UPROPERTY(EditDefaultsOnly, Category="Loot")
+	float ScanSweepFrequency = 3.14f;
+
+	// RInterpTo speed used during the AlignToItem / ScanAlign phases.
+	UPROPERTY(EditDefaultsOnly, Category="Loot")
+	float RotationInterpSpeed = 6.f;
+
+	// We consider the survivor "aligned" once yaw error is below this.
+	UPROPERTY(EditDefaultsOnly, Category="Loot")
+	float AlignToleranceDeg = 5.f;
+
+	// How long to stand at the item after aligning, before transitioning out.
+	UPROPERTY(EditDefaultsOnly, Category="Loot")
+	float LootDuration = 0.5f;
+
+private:
+	ELootPhase m_Phase           = ELootPhase::AlignToItem;
+	FVector    m_ItemLocation    = FVector::ZeroVector;
+	FRotator   m_DesiredRotation = FRotator::ZeroRotator;
+	FRotator   m_ScanBaseRotation= FRotator::ZeroRotator;
+	float      m_ScanElapsed     = 0.f;
+	float      m_LootTimer       = 0.f;
+
+	// Loaded once in OnInit from the plugin Content folder. UPROPERTY so the
+	// GC doesn't collect it out from under us between Loot entries.
+	UPROPERTY()
+	TObjectPtr<class USoundBase> m_LootSound = nullptr;
+
+	// Smooth yaw interpolation toward Target. Keeps pitch/roll at zero.
+	void TickAlignToward(float Dt, AActor* Owner, const FRotator& Target) const;
+	// True when actor yaw is within AlignToleranceDeg of Target's yaw.
+	bool IsAlignedTo(AActor* Owner, const FRotator& Target) const;
 };
 
 

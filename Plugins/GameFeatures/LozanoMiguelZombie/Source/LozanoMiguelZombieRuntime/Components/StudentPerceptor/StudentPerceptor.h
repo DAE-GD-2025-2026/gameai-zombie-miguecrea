@@ -9,34 +9,12 @@
 #include "Perception/AISenseConfig_Damage.h"
 #include "Perception/AISense_Damage.h"
 #include "Items/ItemType.h"
+#include "../FSM/InterestPoint.h"
 #include "StudentPerceptor.generated.h"
-
 
 class ASurvivorPawn;
 
-USTRUCT(BlueprintType)
-struct FInterestPoint
-{
-	GENERATED_BODY()
 
-	// Weak so this struct doesn't keep destroyed items alive. Callers must
-	// check .IsValid() before dereferencing — anything that read raw Actor*
-	// before is a potential dangling-pointer crash if the item gets picked
-	// up by another survivor or otherwise despawns.
-	UPROPERTY()
-	TWeakObjectPtr<AActor> Actor;
-
-	UPROPERTY()
-	bool m_Visited = false;
-
-
-	bool operator==(const FInterestPoint& Other) const
-	{
-		// TWeakObjectPtr::operator== compares the underlying object identity
-		// (and the SerialNumber), so AddUnique still de-dupes correctly.
-		return Actor == Other.Actor;
-	}
-};
 
 class UAIPerceptionComponent;
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
@@ -66,7 +44,7 @@ public:
 	
 	void DeferredInit();
 	
-	std::optional<FInterestPoint>GetBestInterestPoint();
+	FInterestPoint * GetBestInterestPoint();
 	
 	float GetItemBaseUtility(EItemType type);
 	float GetHouseBaseUtility();
@@ -90,6 +68,8 @@ public:
 	void ChangeColor();
 	
 	TArray<FInterestPoint> m_UnvisitedInterestPointsInBrain;
+	TSet<AActor*> m_IgnoredActors; // Actors that I want to not put on memory 
+	//those you grabbed 
 	
 	TArray<AActor*> GetSeenActorsInMemory(); 
 	TArray<AActor*> GetActorsOnFOV();

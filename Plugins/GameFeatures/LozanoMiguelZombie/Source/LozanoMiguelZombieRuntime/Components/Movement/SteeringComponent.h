@@ -14,7 +14,7 @@ class ASurvivorAIController;
 // bSucceeded is true only for EPathFollowingResult::Success — states that
 // care about the difference between success / blocked / aborted can handle
 // it themselves; most just want "are we done?"
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnSteeringMoveCompleted, bool, bSucceeded);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnSteeringMoveCompleted,EPathFollowingResult::Type,WhatHappened);
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class LOZANOMIGUELZOMBIERUNTIME_API USteeringComponent : public UActorComponent
@@ -30,6 +30,9 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = "Steering")
 	FOnSteeringMoveCompleted OnMoveCompleted;
 
+	
+	
+	void SetRotate(bool Rotate);
 protected:
 	virtual void BeginPlay() override;
 	void RenderPath();
@@ -62,4 +65,6 @@ protected:
 public:
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType,
 	                           FActorComponentTickFunction* ThisTickFunction) override;
+	void SetFocus(AActor * ActorToFocus);
+	void ClearFocus();
 };

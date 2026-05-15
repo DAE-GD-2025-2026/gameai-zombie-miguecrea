@@ -21,6 +21,12 @@ namespace BBKeys
 	
 	// ---- Perception flags (set by UStudentPerceptor) ----------------------
 	inline const FName bArrivedAtInterestPoint (TEXT("bArrivedAtInterestPoint"));
+	inline const FName bLootDone      (TEXT("bLootDone"));
+	inline const FName bItem      (TEXT("bItem"));
+	
+	
+	
+	
 	inline const FName bThreatNearby  (TEXT("bThreatNearby"));
 	inline const FName ThreatLocation (TEXT("ThreatLocation"));
 	inline const FName DistanceToTarget(TEXT("DistanceToTarget"));
@@ -31,6 +37,5 @@ namespace BBKeys
 
 	// ---- State-machine transition triggers --------------------------------
 	inline const FName bAtTarget      (TEXT("bAtTarget"));
-	inline const FName bLootDone      (TEXT("bLootDone"));
 	inline const FName bThreatGone    (TEXT("bThreatGone"));
 }

@@ -31,7 +31,7 @@ void USteeringComponent::Move(const FVector & ToLocation)
 	FAIMoveRequest MoveReq;
 
 	MoveReq.SetGoalLocation(ToLocation);
-	MoveReq.SetAcceptanceRadius(100.f);
+	MoveReq.SetAcceptanceRadius(20.f);
 	MoveReq.SetUsePathfinding(true);
 	MoveReq.SetAllowPartialPath(true);
 	MoveReq.SetProjectGoalLocation(true);
@@ -57,6 +57,11 @@ void USteeringComponent::Move(const FVector & ToLocation)
 		break;
 	}
 	
+}
+
+void USteeringComponent::SetRotate(bool Rotate)
+{
+	m_Rotate = Rotate;
 }
 
 void USteeringComponent::BeginPlay()
@@ -104,8 +109,7 @@ ASurvivorAIController * USteeringComponent::GetAI()
 void USteeringComponent::HandleAIMoveCompleted(FAIRequestID /*RequestID*/,
                                                EPathFollowingResult::Type Result)
 {
-	const bool bSucceeded = (Result == EPathFollowingResult::Success);
-	OnMoveCompleted.Broadcast(bSucceeded);
+	OnMoveCompleted.Broadcast(Result);
 }
 
 void USteeringComponent::RenderPath()
@@ -145,18 +149,28 @@ void USteeringComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 		m_PawnOwner->AddActorLocalRotation(
 			FRotator(0.f, m_ManualRotationSpeed * DeltaTime, 0.f));
 	}
-	else
-	{
-		FVector Vel = m_PawnOwner->GetVelocity();
-		if (Vel.SizeSquared() > 100.f)
-		{
-			FRotator Current = m_PawnOwner->GetActorRotation();
-			FRotator Target = Vel.Rotation();
-			Target.Pitch = 0.f;
-			Target.Roll = 0.f;
 
-			FRotator NewRot = FMath::RInterpTo(Current, Target, DeltaTime, m_FaceVelocitySpeed);
-			m_PawnOwner->SetActorRotation(NewRot);
-		}
-	}
 }
+
+void USteeringComponent::SetFocus(AActor * ActorToFocus)
+{
+	m_AIController->SetFocus(ActorToFocus);
+}
+
+void USteeringComponent::ClearFocus()
+{
+	m_AIController->ClearFocus(EAIFocusPriority::Move);
+}
+
+
+// FVector Vel = m_PawnOwner->GetVelocity();
+// if (Vel.SizeSquared() > 100.f)
+// {
+// 	FRotator Current = m_PawnOwner->GetActorRotation();
+// 	FRotator Target = Vel.Rotation();
+// 	Target.Pitch = 0.f;
+// 	Target.Roll = 0.f;
+// 		
+// 	FRotator NewRot = FMath::RInterpTo(Current, Target, DeltaTime, m_FaceVelocitySpeed);
+// 	m_PawnOwner->SetActorRotation(NewRot);
+// }
