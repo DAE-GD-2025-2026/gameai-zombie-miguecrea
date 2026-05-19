@@ -220,6 +220,9 @@ private:
 	void TickAlignToward(float Dt, AActor* Owner, const FRotator& Target) const;
 	// True when actor yaw is within AlignToleranceDeg of Target's yaw.
 	bool IsAlignedTo(AActor* Owner, const FRotator& Target) const;
+	bool TryGrabItem(class ABaseItem * Item);
+
+	
 };
 
 
@@ -227,13 +230,71 @@ UCLASS()
 class LOZANOMIGUELZOMBIERUNTIME_API UCombatState : public UStateBase
 {
 	GENERATED_BODY()
+
 public:
 	UCombatState();
+
 protected:
+	TWeakObjectPtr<USteeringComponent>          SteeringComponent;
+	TWeakObjectPtr<UStudentPerceptor>           Memory;
+	TWeakObjectPtr<class UInventoryComponent>   Inventory;
+
 	virtual void OnInit() override;
-	virtual void OnEnter_Implementation(AActor * Owner) override;
-	virtual void OnTick_Implementation(float DeltaTime, AActor * Owner) override;
-	virtual void OnExit_Implementation(AActor * Owner) override;
+	virtual void OnEnter_Implementation(AActor* Owner) override;
+	virtual void OnTick_Implementation(float DeltaTime, AActor* Owner) override;
+	virtual void OnExit_Implementation(AActor* Owner) override;
+
+	bool HasAnyWeapon = false;
+	const float m_TimeUntilItIsSafe = 5.f;
+	float m_Timer = 0.f;
+
+	// --- Tuning -----------------------------------------------------------
+
+	// How often the zigzag side flips, which is also when we re-issue the
+	// retreat MoveTo. Lower = more frantic, higher = lazier.
+	UPROPERTY(EditDefaultsOnly, Category="Combat")
+	float ZigzagFlipInterval = 0.6f;
+
+	// How far back to retreat per flip (Unreal units).
+	UPROPERTY(EditDefaultsOnly, Category="Combat")
+	float RetreatDistance = 800.f;
+
+	// Lateral offset of the zigzag (Unreal units).
+	UPROPERTY(EditDefaultsOnly, Category="Combat")
+	float ZigzagAmount = 400.f;
+
+	// Seconds between weapon uses.
+	UPROPERTY(EditDefaultsOnly, Category="Combat")
+	float FireCooldown = 1.0f;
+
+	// RInterp speed for the face-target rotation. Higher = snappier.
+	UPROPERTY(EditDefaultsOnly, Category="Combat")
+	float FaceTargetSpeed = 12.f;
+
+private:
+	float m_ZigzagTimer = 0.f;
+	float m_FireTimer   = 0.f;
+	int32 m_ZigzagSide  = 1; // +1 / -1
+
+	TWeakObjectPtr<class ABaseZombie> m_CurrentTarget;
+
+	// Closest of the visible zombies. Returns nullptr if list is empty.
+	class ABaseZombie* PickClosestZombie(
+		const TArray<class ABaseZombie*>& Zombies, AActor* Owner) const;
+
+	// Inventory slot containing a weapon, preferring Shotgun. -1 if none.
+	int32 FindWeaponSlot() const;
+
+	// Smooth manual yaw rotation toward Threat. Pitch/roll forced to zero.
+	void FaceTarget(float Dt, AActor* Owner, AActor* Threat) const;
+
+	// Recompute (away-from-threat + lateral) destination and re-issue Move.
+	void IssueRetreatMove(AActor* Owner, AActor* Threat);
+
+	// Mirrors AWeapon::Shoot's line trace from the plugin side so we can
+	// actually see the trace. Persists 1 second. Doesn't damage anything —
+	// the host's UseItem still does the real shoot/damage.
+	void DrawWeaponTrace(AActor* Owner, class ABaseItem* WeaponItem) const;
 };
 
 UCLASS()

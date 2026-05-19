@@ -13,11 +13,8 @@
 #include "../StudentPerceptor/StudentPerceptor.h"
 #include "LozanoMiguelZombieRuntime/Components/BlackBoard/BBKeys.h"
 
-// Static guard so the ambient track only spawns once even though every
-// zombie's FSM runs BeginPlay independently. Reset on PIE-restart is handled
-// by Unreal nulling the audio component pointer between sessions, but to be
-// safe we also clear the flag if SpawnSound2D ever returns nullptr.
-bool UFSMComponent::s_AmbientMusicStarted = false;
+
+TWeakObjectPtr<UAudioComponent> UFSMComponent::s_LiveAmbientMusicAC;
 
 UFSMComponent::UFSMComponent()
 {
@@ -51,25 +48,39 @@ void UFSMComponent::BeginPlay()
 
 void UFSMComponent::StartAmbientMusicOnce()
 {
-	if (s_AmbientMusicStarted) return;
+	
+	if (s_LiveAmbientMusicAC.IsValid())
+	{
+		UE_LOG(LogTemp, Verbose, TEXT("[FSM] Ambient music already running — skipping."));
+		return;
+	}
 
 	UWorld* W = GetWorld();
-	if (!W) return;
+	if (!W)
+	{
+		UE_LOG(LogTemp, Error, TEXT("[FSM] No world — cannot start ambient music."));
+		return;
+	}
 
 	static const TCHAR * MusicPath =
 		TEXT("/LozanoMiguelZombie/Sounds/shadowsandechoes-inhuman-post-apocalyptic-dark-ambient-248361.shadowsandechoes-inhuman-post-apocalyptic-dark-ambient-248361");
+
+	UE_LOG(LogTemp, Warning, TEXT("[FSM] Loading ambient music: %s"), MusicPath);
 
 	m_AmbientMusic = LoadObject<USoundBase>(nullptr, MusicPath);
 	if (!m_AmbientMusic)
 	{
 		UE_LOG(LogTemp, Error,
-			TEXT("[FSM] Failed to load ambient music at '%s'."), MusicPath);
+			TEXT("[FSM] Failed to load ambient music at '%s'.\n"
+			     "  → Open the asset in the Content Browser, right-click → "
+			     "Copy Reference, and paste here to compare."), MusicPath);
 		return;
 	}
 
-	// SpawnSound2D returns the AudioComponent so we can bind OnAudioFinished
-	// and replay it. bAutoDestroy=false keeps the component alive between
-	// loop iterations so we can call Play() on it again.
+	UE_LOG(LogTemp, Warning, TEXT("[FSM] Ambient asset loaded: %s (Duration=%.2fs)"),
+		*m_AmbientMusic->GetName(), m_AmbientMusic->GetDuration());
+
+
 	m_AmbientMusicAC = UGameplayStatics::SpawnSound2D(
 		W,
 		m_AmbientMusic,
@@ -77,17 +88,22 @@ void UFSMComponent::StartAmbientMusicOnce()
 		/*Pitch*/  1.0f,
 		/*Start*/  0.0f,
 		/*Attenuation*/ nullptr,
-		/*bPersistAcrossLevelTransition*/ true,
+		/*bPersistAcrossLevelTransition*/ false,
 		/*bAutoDestroy*/ false);
 
 	if (!m_AmbientMusicAC)
 	{
-		UE_LOG(LogTemp, Error, TEXT("[FSM] SpawnSound2D returned null — ambient music not playing."));
+		UE_LOG(LogTemp, Error,
+			TEXT("[FSM] SpawnSound2D returned null — ambient music not playing."));
 		return;
 	}
 
 	m_AmbientMusicAC->OnAudioFinished.AddDynamic(this, &UFSMComponent::OnAmbientMusicFinished);
-	s_AmbientMusicStarted = true;
+	s_LiveAmbientMusicAC = m_AmbientMusicAC;
+
+	UE_LOG(LogTemp, Warning,
+		TEXT("[FSM] Ambient music spawned. IsPlaying=%d, Volume=%.2f"),
+		m_AmbientMusicAC->IsPlaying() ? 1 : 0, m_AmbientMusicAC->VolumeMultiplier);
 }
 
 void UFSMComponent::OnAmbientMusicFinished()
@@ -128,6 +144,8 @@ void UFSMComponent::DeferredInit()
 	ULootState * Loot = NewObject<ULootState>(this);
 	UCombatState * Combat = NewObject<UCombatState>(this);
 	UFleeState * Flee = NewObject<UFleeState>(this);
+	
+	//ADD THE FEAR STATE 
 	
 	RegisterState(Wander->GetStateName(), Wander);
 	RegisterState(Loot->GetStateName(),Loot);

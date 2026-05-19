@@ -96,10 +96,10 @@ private:
 	void TestFunctionStateMachine();
 
 	// Background music: load once, play 2D, manually loop via OnAudioFinished.
-	// Static guard so only the first FSM to BeginPlay starts the track —
-	// every zombie has its own FSM, otherwise we'd stack N copies on top
-	// of each other.
-	static bool s_AmbientMusicStarted;
+	// Tracks the *live* AudioComponent so PIE restarts re-start music cleanly
+	// (a process-level bool would stay true between PIE sessions and lock us
+	// out — TWeakObjectPtr invalidates when the AC is destroyed).
+	static TWeakObjectPtr<class UAudioComponent> s_LiveAmbientMusicAC;
 
 	void StartAmbientMusicOnce();
 

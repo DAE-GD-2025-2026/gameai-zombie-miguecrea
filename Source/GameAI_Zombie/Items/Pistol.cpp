@@ -15,6 +15,8 @@ void APistol::UseItem(ASurvivorPawn& Survivor)
 {
 	if (GetValue() <= 0)
 	{
+		
+		
 		return;
 	}
 	

@@ -13,7 +13,7 @@
 #include "StudentPerceptor.generated.h"
 
 class ASurvivorPawn;
-
+class ABaseZombie;
 
 
 class UAIPerceptionComponent;
@@ -71,10 +71,13 @@ public:
 	TSet<AActor*> m_IgnoredActors; // Actors that I want to not put on memory 
 	//those you grabbed 
 	
-	TArray<AActor*> GetSeenActorsInMemory(); 
-	TArray<AActor*> GetActorsOnFOV();
-	void ForgetActorsFromMemory(AActor * Actor);
+
+	TArray<ABaseZombie*> GetVisibleZombies ();
 	
+	class UBlackboardComponent * GetBlackboard() const;
+
+	void ForgetInterestPoints(const FInterestPoint& InterestPoint);
+
 private:
 
 	class UHealthComponent    * m_Health    = nullptr;

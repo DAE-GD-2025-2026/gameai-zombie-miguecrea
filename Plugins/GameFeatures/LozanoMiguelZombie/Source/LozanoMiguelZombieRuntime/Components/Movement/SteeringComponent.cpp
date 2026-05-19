@@ -20,14 +20,13 @@ USteeringComponent::USteeringComponent()
 
 void USteeringComponent::Move(const FVector & ToLocation)
 {
-	ASurvivorAIController* AI = GetAI();
-	if (!AI)
+	if (!m_AIController)
 	{
-		UE_LOG(LogTemp, Warning,
-			TEXT("Steering::Move ignored — AIController not ready yet."));
+		
+		UE_LOG(LogTemp,Error, TEXT("Survivor AI Controller is NULL"));
 		return;
 	}
-
+	
 	FAIMoveRequest MoveReq;
 
 	MoveReq.SetGoalLocation(ToLocation);
@@ -39,7 +38,7 @@ void USteeringComponent::Move(const FVector & ToLocation)
 	MoveReq.SetCanStrafe(true);
 	// MoveReq.SetNavigationFilter(MyFilterClass);
 
-	EPathFollowingRequestResult::Type Result = AI->MoveTo(MoveReq, &m_NavPath);
+	EPathFollowingRequestResult::Type Result = m_AIController->MoveTo(MoveReq, &m_NavPath);
 
 	switch (Result)
 	{
@@ -160,6 +159,17 @@ void USteeringComponent::SetFocus(AActor * ActorToFocus)
 void USteeringComponent::ClearFocus()
 {
 	m_AIController->ClearFocus(EAIFocusPriority::Move);
+}
+
+void USteeringComponent::StopMoving()
+{
+	// Cancel any active MoveTo so a state transition can immediately issue
+	// its own destination without inheriting the previous path. Safe to call
+	// even when no path is active.
+	if (m_AIController)
+	{
+		m_AIController->StopMovement();
+	}
 }
 
 

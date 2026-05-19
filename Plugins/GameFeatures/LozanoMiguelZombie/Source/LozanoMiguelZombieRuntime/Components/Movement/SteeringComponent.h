@@ -67,4 +67,5 @@ public:
 	                           FActorComponentTickFunction* ThisTickFunction) override;
 	void SetFocus(AActor * ActorToFocus);
 	void ClearFocus();
+	void StopMoving();
 };

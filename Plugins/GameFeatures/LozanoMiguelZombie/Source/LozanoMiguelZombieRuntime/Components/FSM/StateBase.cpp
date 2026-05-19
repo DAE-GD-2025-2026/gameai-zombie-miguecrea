@@ -12,8 +12,53 @@
 #include "Common/InventoryComponent.h"
 #include "Village/House/House.h"
 #include "Items/BaseItem.h"
+#include "Items/ItemType.h"
 #include "Sound/SoundBase.h"
 #include "Kismet/GameplayStatics.h"
+#include "Zombies/BaseZombie.h"
+#include "DrawDebugHelpers.h"
+#include "CollisionQueryParams.h"
+
+
+namespace LootSlots
+{
+	// Weapons (Pistol / Shotgun) — heterogeneous, so swap rules matter here.
+	constexpr int32 WeaponMin = 0;
+	constexpr int32 WeaponMax = 1;
+	// Food — homogeneous, never swap.
+	
+	constexpr int32 FoodMin   = 2;
+	constexpr int32 FoodMax   = 3;
+	// Medkit — single slot, homogeneous.
+	constexpr int32 Medkit    = 4;
+
+	constexpr int32 Total     = 5;
+
+	// Returns inclusive [Min, Max] range or [-1, -1] for "no slot".
+	static void RangeFor(EItemType T, int32& OutMin, int32& OutMax)
+	{
+		switch (T)
+		{
+		case EItemType::Pistol:
+		case EItemType::Shotgun: OutMin = WeaponMin; OutMax = WeaponMax; return;
+		case EItemType::Food:    OutMin = FoodMin;   OutMax = FoodMax;   return;
+		case EItemType::Medkit:  OutMin = Medkit;    OutMax = Medkit;    return;
+		default:                 OutMin = -1;        OutMax = -1;        return;
+		}
+	}
+
+	// Score used only for weapon-vs-weapon swap decisions. Shotgun > Pistol.
+	// Kept local so it can't drift from the perceptor's utility table.
+	static float WeaponScore(EItemType T)
+	{
+		switch (T)
+		{
+		case EItemType::Shotgun: return 10.f;
+		case EItemType::Pistol:  return 6.f;
+		default:                 return 0.f;
+		}
+	}
+}
 
 
 // ============================================================================
@@ -152,11 +197,20 @@ void UWanderState::HandleArrived(EPathFollowingResult::Type WhatHappened)
 		UE_LOG(LogTemp,Warning,TEXT(" Arrived to Loot "));
 		
 		FSM->Blackboard.Get()->SetValueAsBool(BBKeys::bArrivedAtInterestPoint,true);
-		if (m_BestInterest)FSM->Blackboard.Get()->SetValueAsObject(BBKeys::bItem,m_BestInterest->Actor.Get());
+		if (m_BestInterest)
+		{
+			FSM->Blackboard.Get()->SetValueAsObject(BBKeys::bItem,m_BestInterest->Actor.Get());
+		}
 		
 		break;
 	case EReasonToMove::Explore:
-		UE_LOG(LogTemp,Warning,TEXT("Explored"));
+
+
+		UE_LOG(LogTemp, Warning, TEXT("Explored"));
+		// if (m_BestInterest)
+		// {
+		// 	Memory->ForgetInterestPoints(*m_BestInterest);
+		// }
 		AdvancePatrol();
 		break;
 		
@@ -170,6 +224,7 @@ void UWanderState::HandleArrived(EPathFollowingResult::Type WhatHappened)
 	if (m_BestInterest)
 	{
 		m_BestInterest->m_Visited = true;
+		
 	}
 }
 
@@ -309,11 +364,7 @@ void ULootState::OnInit()
 	Steering  = GetSibling<USteeringComponent>();
 	Inventory = GetSibling<UInventoryComponent>();
 
-	// Load the loot SFX once from the plugin Content folder.
-	// Path format: /<PluginMountPoint>/<Folder>/<AssetName>.<AssetName>
-	// The plugin mount point is the plugin's name — "LozanoMiguelZombie" —
-	// taken from the .uplugin's FriendlyName / module name. The doubled
-	// asset name at the end is the standard "PackagePath.ObjectName" form.
+	
 	static const TCHAR * LootSoundPath =
 		TEXT("/LozanoMiguelZombie/Sounds/freesound_community-item-equip-6904.freesound_community-item-equip-6904");
 
@@ -440,6 +491,9 @@ void ULootState::OnTick_Implementation(float DeltaTime, AActor* Owner)
 			m_Phase     = ELootPhase::Looting;
 			if (m_LootSound)
 			{
+				
+				//Set Item To Null becase we garbbed it 
+				
 				UGameplayStatics::PlaySoundAtLocation(
 					Owner, m_LootSound, Owner->GetActorLocation());
 			}
@@ -452,12 +506,21 @@ void ULootState::OnTick_Implementation(float DeltaTime, AActor* Owner)
 		m_LootTimer += DeltaTime;
 		if (m_LootTimer >= LootDuration)
 		{
-			// TODO: actually grab the item once Inventory wiring is decided.
-			if (Inventory.IsValid())
+			// Pull the item from the blackboard (Wander set it on arrival).
+			ABaseItem* Item = nullptr;
+			if (FSM.IsValid() && FSM->Blackboard.IsValid())
 			{
-			     UObject* ItemObj = FSM->Blackboard->GetValueAsObject(BBKeys::bItem);
-			     Inventory->GrabItem(0, Cast<ABaseItem>(ItemObj));
-			 }
+				UObject* ItemObj = FSM->Blackboard->GetValueAsObject(BBKeys::bItem);
+				Item = Cast<ABaseItem>(ItemObj);
+			}
+
+			// All "where does this go / should I swap" logic lives in
+			// TryGrabItem so nothing outside the plugin has to change.
+			// Return value isn't actionable here — success or skip, we
+			// still resume wandering. The InterestPoint was marked
+			// visited in Wander's HandleArrived so we won't re-target it.
+			TryGrabItem(Item);
+
 			ResumeWandering();
 		}
 		break;
@@ -500,32 +563,366 @@ bool ULootState::IsAlignedTo(AActor* Owner, const FRotator& Target) const
 	return DeltaYaw <= AlignToleranceDeg;
 }
 
-void UCombatState::OnInit()
-{
-	
-}
 
+
+bool ULootState::TryGrabItem(ABaseItem * Item)
+{
+	if (!Item)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[Loot] TryGrabItem: null item."));
+		return false;
+	}
+	if (!Inventory.IsValid())
+	{
+		UE_LOG(LogTemp, Error, TEXT("[Loot] TryGrabItem: no inventory ref."));
+		return false;
+	}
+
+	const EItemType Type = Item->GetItemType();
+
+	int32 RangeMin = -1, RangeMax = -1;
+	LootSlots::RangeFor(Type, RangeMin, RangeMax);
+	if (RangeMin < 0)
+	{
+		UE_LOG(LogTemp, Warning,
+			TEXT("[Loot] No slot policy for item type %d — ignoring."), (int32)Type);
+		return false;
+	}
+
+	const TArray<ABaseItem*>& Slots = Inventory->GetInventory();
+	if (Slots.Num() < LootSlots::Total)
+	{
+		UE_LOG(LogTemp, Error,
+			TEXT("[Loot] Inventory has %d slots; loot policy expects %d. "
+			     "Increase the inventory capacity in the host."),
+			Slots.Num(), LootSlots::Total);
+		return false;
+	}
+
+	// --- 1) Empty slot in the type's range? -> just grab.
+	for (int32 i = RangeMin; i <= RangeMax; ++i)
+	{
+		if (!Slots[i])
+		{
+			const bool bOk = Inventory->GrabItem(i, Item);
+			UE_LOG(LogTemp, Warning,
+				TEXT("[Loot] Grabbed type=%d into empty slot %d (success=%d)."),
+				(int32)Type, i, bOk ? 1 : 0);
+			return bOk;
+		}
+	}
+
+	// --- 2) All slots in range are full.
+	// Food and Medkit slots only ever hold a single type; swapping a Food
+	// for another Food (or a Medkit for another Medkit) is no improvement.
+	// Skip and leave the world item behind.
+	if (Type != EItemType::Pistol && Type != EItemType::Shotgun)
+	{
+		UE_LOG(LogTemp, Warning,
+			TEXT("[Loot] No empty slot for type=%d and no upgrade rule for "
+			     "this type — skipping."), (int32)Type);
+		return false;
+	}
+
+	// --- 3) Weapon slots full. Look for the *worst* weapon currently held;
+	// swap only if the new weapon strictly beats it.
+	
+	int32 WorstSlot  = -1;
+	float WorstScore = TNumericLimits<float>::Max();
+	for (int32 i = RangeMin; i <= RangeMax; ++i)
+	{
+		if (!Slots[i]) continue; // shouldn't happen — we already checked above
+		const float ExistingScore = LootSlots::WeaponScore(Slots[i]->GetItemType());
+		if (ExistingScore < WorstScore)
+		{
+			WorstScore = ExistingScore;
+			WorstSlot  = i;
+		}
+	}
+
+	if (WorstSlot < 0)
+	{
+		UE_LOG(LogTemp, Error, TEXT("[Loot] Couldn't identify worst weapon slot."));
+		return false;
+	}
+
+	const float NewScore = LootSlots::WeaponScore(Type);
+	if (NewScore <= WorstScore)
+	{
+		UE_LOG(LogTemp, Warning,
+			TEXT("[Loot] New weapon (type=%d, score=%.1f) does not beat existing "
+			     "(slot=%d, score=%.1f) — skipping swap."),
+			(int32)Type, NewScore, WorstSlot, WorstScore);
+		return false;
+	}
+
+	// --- 4) Swap: remove the worst, grab the new one into that slot.
+	const bool bRemoved = Inventory->RemoveItem(WorstSlot);
+	if (!bRemoved)
+	{
+		UE_LOG(LogTemp, Error,
+			TEXT("[Loot] RemoveItem(slot=%d) failed; abort swap."), WorstSlot);
+		return false;
+	}
+	const bool bGrabbed = Inventory->GrabItem(WorstSlot, Item);
+	UE_LOG(LogTemp, Warning,
+		TEXT("[Loot] Swapped slot %d: old score %.1f -> new score %.1f (success=%d)."),
+		WorstSlot, WorstScore, NewScore, bGrabbed ? 1 : 0);
+	return bGrabbed;
+}
 
 UCombatState::UCombatState()
 	: UStateBase()
 {
 }
 
-void UCombatState::OnEnter_Implementation(AActor* Owner)
+void UCombatState::OnInit()
 {
-	UE_LOG(LogTemp,Warning, TEXT("UCombat State OnEnter "));
-	
-}
-void UCombatState::OnTick_Implementation(float DeltaTime, AActor* Owner)
-{
-	
-	//GO ON ZIG ZAG WHILE looking at the Zombies And Shooting Them 1 by One 
-	//Add A grenade 
+	SteeringComponent = GetSibling<USteeringComponent>();
+	Memory            = GetSibling<UStudentPerceptor>();
+	Inventory         = GetSibling<UInventoryComponent>();
 }
 
-void UCombatState::OnExit_Implementation(AActor * Owner)
+void UCombatState::OnEnter_Implementation(AActor* Owner)
 {
-	//make it rotate again 
+	UE_LOG(LogTemp, Warning, TEXT("UCombat State OnEnter"));
+
+	// Cancel whatever Wander/Loot had us pathing toward — Combat will issue
+	// its own retreat-zigzag MoveTo on the first tick.
+	if (SteeringComponent.IsValid()) SteeringComponent->StopMoving();
+
+	// We drive rotation manually (face the target every tick). Make sure
+	// Steering's auto-spin isn't fighting us.
+	if (SteeringComponent.IsValid()) SteeringComponent->SetRotate(false);
+
+	m_Timer        = 0.f;
+	m_FireTimer    = 0.f;                  // can fire on first opportunity
+	m_ZigzagTimer  = ZigzagFlipInterval;   // force immediate move on first tick
+	m_ZigzagSide   = FMath::RandBool() ? 1 : -1;
+	m_CurrentTarget.Reset();
+}
+
+void UCombatState::OnTick_Implementation(float DeltaTime, AActor* Owner)
+{
+	if (!Owner || !Memory.IsValid()) return;
+
+	// --- 1) "All clear" check. Run the safety timer; if it elapses, raise
+	// bThreatGone so the Combat -> Wander transition fires.
+	auto Zombies = Memory->GetVisibleZombies();
+	if (Zombies.IsEmpty())
+	{
+		m_Timer += DeltaTime;
+	}
+	else
+	{
+		m_Timer = 0.f;
+	}
+	if (m_Timer >= m_TimeUntilItIsSafe)
+	{
+		m_Timer = 0.f;
+		if (FSM.IsValid() && FSM->Blackboard.IsValid())
+		{
+			//FSM->Blackboard->SetValueAsBool(BBKeys::bThreatGone, true);
+		}
+	}
+	
+	if (Zombies.IsEmpty()) return;
+
+	ABaseZombie * Target = PickClosestZombie(Zombies, Owner);
+	if (!Target) return;
+	m_CurrentTarget = Target;
+
+	FaceTarget(DeltaTime, Owner, Target);
+
+	
+	if (m_FireTimer <= 0.f && Inventory.IsValid())
+	{
+		const int32 Slot = FindWeaponSlot();
+		if (Slot >= 0)
+		{
+			ABaseItem* WeaponItem = Inventory->GetInventory()[Slot];
+			if (WeaponItem)
+			{
+				// Log type + value (= ammo count for weapons). Read BEFORE
+				// UseItem so we report the pre-fire ammo, which is what the
+				// host's UseItem checks against in its `GetValue() <= 0` guard.
+				UE_LOG(LogTemp, Warning,
+					TEXT("[Combat] FIRE  slot=%d  type=%d  value(ammo)=%d  name=%s"),
+					Slot,
+					(int32)WeaponItem->GetItemType(),
+					WeaponItem->GetValue(),
+					*WeaponItem->GetName());
+
+				// Draw the trace BEFORE UseItem so we see it on the same
+				// frame the host fires. Persists for 1 second.
+				DrawWeaponTrace(Owner, WeaponItem);
+			}
+
+			Inventory->UseItem(Slot);
+			m_FireTimer = FireCooldown;
+		}
+	}
+}
+
+void UCombatState::OnExit_Implementation(AActor* Owner)
+{
+	m_CurrentTarget.Reset();
+	m_Timer       = 0.f;
+	m_ZigzagTimer = 0.f;
+	m_FireTimer   = 0.f;
+	// Don't touch bThreatNearby / bThreatGone — the perceptor manages those.
+	// Wander's OnEnter handles re-enabling Steering rotation as needed.
+}
+
+// ---- Helpers ---------------------------------------------------------------
+
+ABaseZombie* UCombatState::PickClosestZombie(
+	const TArray<ABaseZombie*>& Zombies, AActor* Owner) const
+{
+	if (Zombies.IsEmpty() || !Owner) return nullptr;
+	const FVector MyLoc = Owner->GetActorLocation();
+
+	ABaseZombie* Closest = nullptr;
+	float ClosestDistSq  = TNumericLimits<float>::Max();
+	for (ABaseZombie* Z : Zombies)
+	{
+		if (!Z) continue;
+		const float DistSq = FVector::DistSquared(MyLoc, Z->GetActorLocation());
+		if (DistSq < ClosestDistSq)
+		{
+			ClosestDistSq = DistSq;
+			Closest = Z;
+		}
+	}
+	return Closest;
+}
+
+int32 UCombatState::FindWeaponSlot() const
+{
+	if (!Inventory.IsValid()) return -1;
+	const TArray<ABaseItem*>& Slots = Inventory->GetInventory();
+
+	// Prefer the Shotgun (higher damage); fall back to Pistol.
+	int32 PistolSlot = -1;
+	for (int32 i = 0; i < Slots.Num(); ++i)
+	{
+		if (!Slots[i]) continue;
+		const EItemType T = Slots[i]->GetItemType();
+		if (T == EItemType::Shotgun) return i;
+		if (T == EItemType::Pistol && PistolSlot < 0) PistolSlot = i;
+	}
+	return PistolSlot;
+}
+
+void UCombatState::FaceTarget(float Dt, AActor* Owner, AActor * Threat) const
+{
+	if (!Owner || !Threat) return;
+	const FVector ToTarget =
+		(Threat->GetActorLocation() - Owner->GetActorLocation()).GetSafeNormal2D();
+	if (ToTarget.IsNearlyZero()) return;
+
+	FRotator TargetRot = ToTarget.Rotation();
+	TargetRot.Pitch = 0.f;
+	TargetRot.Roll  = 0.f;
+
+	const FRotator NewRot =
+		FMath::RInterpTo(Owner->GetActorRotation(), TargetRot, Dt, FaceTargetSpeed);
+	Owner->SetActorRotation(NewRot);
+}
+
+void UCombatState::IssueRetreatMove(AActor* Owner, AActor* Threat)
+{
+	if (!Owner || !Threat || !SteeringComponent.IsValid()) return;
+
+	const FVector MyLoc      = Owner->GetActorLocation();
+	const FVector ThreatLoc  = Threat->GetActorLocation();
+
+	FVector AwayDir = (MyLoc - ThreatLoc).GetSafeNormal2D();
+	if (AwayDir.IsNearlyZero())
+	{
+		// Stacked on top of the zombie — fall back to current backward.
+		AwayDir = -Owner->GetActorForwardVector();
+		AwayDir.Z = 0.f;
+		AwayDir.Normalize();
+	}
+
+	// Perpendicular in world XY = cross with UpVector. Flip sign per zigzag.
+	const FVector LateralDir =
+		FVector::CrossProduct(AwayDir, FVector::UpVector).GetSafeNormal();
+
+	const FVector Destination =
+		MyLoc + AwayDir * RetreatDistance + LateralDir * (ZigzagAmount * m_ZigzagSide);
+
+	SteeringComponent->Move(Destination);
+}
+
+void UCombatState::DrawWeaponTrace(AActor* Owner, ABaseItem* WeaponItem) const
+{
+	if (!Owner || !WeaponItem) return;
+	UWorld* W = Owner->GetWorld();
+	if (!W) return;
+
+	// Mirrors AWeapon::Shoot: trace from Survivor's location along Direction
+	// for 10000uu against ECC_Pawn, ignoring the survivor itself.
+	const FVector Start   = Owner->GetActorLocation();
+	const FVector Forward = Owner->GetActorForwardVector();
+
+	FCollisionQueryParams Params;
+	Params.AddIgnoredActor(Owner);
+
+	// Helper lambda so Pistol and Shotgun share the same trace+draw step.
+	// Hit lines turn red; misses are yellow. 1-second persist as requested.
+	auto TraceAndDraw = [&](const FVector& Direction)
+	{
+		const FVector End = Start + Direction * 10000.f;
+
+		FHitResult Hit;
+		const bool bHit = W->LineTraceSingleByChannel(
+			Hit, Start, End, ECC_Pawn, Params);
+
+		const FVector LineEnd  = bHit ? Hit.ImpactPoint : End;
+		const FColor  LineCol  = bHit ? FColor::Red    : FColor::Yellow;
+
+		DrawDebugLine(W, Start, LineEnd, LineCol,
+			/*bPersistentLines*/ false,
+			/*LifeTime*/         1.0f,
+			/*DepthPriority*/    0,
+			/*Thickness*/        2.f);
+
+		if (bHit)
+		{
+			DrawDebugSphere(W, Hit.ImpactPoint, 20.f, 8, FColor::Red,
+				false, 1.0f, 0, 1.f);
+		}
+	};
+
+	switch (WeaponItem->GetItemType())
+	{
+	case EItemType::Pistol:
+	{
+		// Pistol: one straight forward trace.
+		TraceAndDraw(Forward);
+		break;
+	}
+	case EItemType::Shotgun:
+	{
+		// Shotgun: 3 traces with ±10° random yaw, same shape as
+		// AShotgun::UseItem. We use our own RNG so the visualization is
+		// approximate, not bit-exact — pattern reads correctly though.
+		constexpr int32 ShotsPerAmmo  = 3;
+		constexpr float MaxSprayDelta = 10.f;
+		for (int32 i = 0; i < ShotsPerAmmo; ++i)
+		{
+			const float YawDeg = FMath::RandRange(-MaxSprayDelta, MaxSprayDelta);
+			const FVector Dir = Forward.ToOrientationRotator().Add(0.f, YawDeg, 0.f).Vector();
+			TraceAndDraw(Dir);
+		}
+		break;
+	}
+	default:
+		// Not a weapon — nothing to draw.
+		break;
+	}
 }
 
 ///////////////////////////////

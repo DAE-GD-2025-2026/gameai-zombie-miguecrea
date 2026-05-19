@@ -14,6 +14,11 @@
 #include "Common/InventoryComponent.h"
 #include "Engine/World.h"
 #include "TimerManager.h"
+#include "Zombies/BaseZombie.h"
+#include "AIController.h"
+#include "BehaviorTree/BlackboardComponent.h"
+#include "GameFramework/Pawn.h"
+#include "../BlackBoard/BBKeys.h"
 
 UStudentPerceptor::UStudentPerceptor()
 {
@@ -23,9 +28,7 @@ UStudentPerceptor::UStudentPerceptor()
 void UStudentPerceptor::BeginPlay()
 {
 	Super::BeginPlay();
-
-	
-	if (UWorld* W = GetWorld())
+	if (UWorld * W = GetWorld())
 	{
 		W->GetTimerManager().SetTimerForNextTick(
 			FTimerDelegate::CreateUObject(this, &UStudentPerceptor::DeferredInit));
@@ -72,60 +75,64 @@ void UStudentPerceptor::TickComponent(float DeltaTime, ELevelTick TickType,
                                       FActorComponentTickFunction * ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+	
+	// SendHealth
+	//SeeStamina 
 
-	// Draw memory contents, skipping any entries whose actor has been
-	// destroyed since we recorded the sighting.
+	
+	
+	
+	
+	
 	for (const FInterestPoint& InterestPoint : m_UnvisitedInterestPointsInBrain)
 	{
-		AActor* A = InterestPoint.Actor.Get();
+		AActor * A = InterestPoint.Actor.Get();
 		if (A && CurrentColor)
 		{
-			DRAW_CIRCLE(GetWorld(), A->GetActorLocation(), 30.f, *CurrentColor, 3.f);
+			if (!InterestPoint.m_Visited)
+			{
+				DRAW_CIRCLE(GetWorld(), A->GetActorLocation(), 30.f, *CurrentColor, 3.f);
+			}
+			else
+			{
+				DRAW_CIRCLE(GetWorld(), A->GetActorLocation(), 30.f, FColor::Yellow, 3.f);
+			}
 		}
 	}
+	
 }
 
-void UStudentPerceptor::OnPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus)
+void UStudentPerceptor::OnPerceptionUpdated(AActor * Actor, FAIStimulus Stimulus)
 {
+	
 	if (Stimulus.Type == UAISense::GetSenseID<UAISense_Sight>())
 	{
 		if (Stimulus.WasSuccessfullySensed())
 		{
 			if (Cast<AHouse>(Actor) || Cast<ABaseItem>(Actor))
 			{
-			ABaseItem * Item = Cast<ABaseItem>(Actor);
-				
+				ABaseItem * Item = Cast<ABaseItem>(Actor);
 				if (Item && Item->GetItemType() == EItemType::Garbage) return;
-				
 				FInterestPoint InterestPoint;
 				InterestPoint.Actor = Actor;
 				InterestPoint.m_Visited = false;
 				m_UnvisitedInterestPointsInBrain.AddUnique(InterestPoint);
-
 				auto NumberInterestPointsInMemory = m_UnvisitedInterestPointsInBrain.Num();
-				//UE_LOG(LogTemp, Warning, TEXT("Interest points: %i"), NumberInterestPointsInMemory);
 			}
-			//No Zombies or purgeZonesYet
+			
+			if (Cast<ABaseZombie>(Actor))
+			{
+				if (UBlackboardComponent * BB = GetBlackboard())
+				{
+					BB->SetValueAsBool(BBKeys::bThreatNearby, true);
+					BB->SetValueAsBool(BBKeys::bThreatGone,   false);
+				}
+			}
 		}
-		else
-		{
-			// UE_LOG(LogTemp, Warning TEXT("Lost sight"));
-		}
+		
 	}
-	else if (Stimulus.Type == UAISense::GetSenseID<UAISense_Damage>())
-	{
-		//maybe needs to Heal 
-		//Or needs to seacrh for Meds 
-		//search for guns ? 
-	}
+	
 
-	//items , 
-
-	//PurgeZone 
-
-	//House 
-
-	//Zombie 
 }
 
 void UStudentPerceptor::OnTargetForgotten(AActor* Actor)
@@ -199,7 +206,11 @@ float UStudentPerceptor::GetItemBaseUtility(EItemType type)
 
 float UStudentPerceptor::GetHouseBaseUtility()
 {
-	return 15.f;
+	// Lower than the Medkit base (10) so a visible item at comparable
+	// distance always wins. Houses are still picked when no item is in
+	// memory or when an item is significantly further away — the distance
+	// falloff in GetBestInterestPoint does the rest.
+	return 8.f;
 }
 
 float UStudentPerceptor::ApplyContextModifier(float base, const EItemType& ItemType)
@@ -231,7 +242,6 @@ float UStudentPerceptor::ApplyContextModifier(float base, const EItemType& ItemT
 	{
 		score *= 4.f;
 	}
-
 	return score;
 }
 
@@ -266,46 +276,58 @@ void UStudentPerceptor::ChangeColor()
 	}
 }
 
-TArray<AActor*> UStudentPerceptor::GetSeenActorsInMemory()
-{
-	TArray<AActor*> Actors;
-	if (!m_PerceptionComponent) return Actors;
-	m_PerceptionComponent->GetKnownPerceivedActors(
-		UAISense_Sight::StaticClass(),
-		Actors
-	);
-	return Actors;
-}
 
-TArray<AActor*> UStudentPerceptor::GetActorsOnFOV()
+TArray<ABaseZombie*> UStudentPerceptor::GetVisibleZombies ()
 {
-	TArray<AActor*> SeenActors;
-	if (!m_PerceptionComponent) return SeenActors;
+	TArray<ABaseZombie*> Zombies;
+	if (!m_PerceptionComponent) return Zombies;
+	
+	TArray<AActor*> AllSeen;
 	m_PerceptionComponent->GetCurrentlyPerceivedActors(
 		UAISense_Sight::StaticClass(),
-		SeenActors
+		AllSeen
 	);
-	return SeenActors;
+
+	Zombies.Reserve(AllSeen.Num());
+	for (AActor * A : AllSeen)
+	{
+		if (ABaseZombie* Z = Cast<ABaseZombie>(A))
+		{
+			Zombies.Add(Z);
+		}
+	}
+	return Zombies;
 }
 
-void UStudentPerceptor::ForgetActorsFromMemory(AActor* Actor)
+void UStudentPerceptor::ForgetInterestPoints(const FInterestPoint& InterestPoint)
 {
-	if (!m_PerceptionComponent) return;
-	m_PerceptionComponent->ForgetActor(Actor);
+	m_UnvisitedInterestPointsInBrain.Remove(InterestPoint);
 }
 
+UBlackboardComponent * UStudentPerceptor::GetBlackboard() const
+{
+	APawn * Pawn = Cast<APawn>(GetOwner());
+	if (!Pawn) return nullptr;
+	AAIController * AI = Cast<AAIController>(Pawn->GetController());
+	return AI ? AI->GetBlackboardComponent() : nullptr;
+}
 
-//ABaseItem * IsItem = Cast<ABaseItem>(Actor);
-// UE_LOG(LogTemp,Warning,TEXT("hELLO"))
-// //ADD Actor to memory 
-//  if (IsItem)
-//  {
-//  	auto inv = GetOwner()->GetComponentByClass<UInventoryComponent>()->GrabItem(0,IsItem);
-// 	 
-//  //	UE_LOG(LogTemp, Warning, TEXT("ItEM gRABBED"));
-//  }
+// TArray<AActor*> UStudentPerceptor::GetSeenActorsInMemory()
+// {
+// 	TArray<AActor*> Actors;
+// 	if (!m_PerceptionComponent) return Actors;
+// 	m_PerceptionComponent->GetKnownPerceivedActors(
+// 		UAISense_Sight::StaticClass(),
+// 		Actors
+// 	);
+// 	return Actors;
+// }
 //
-
+// void UStudentPerceptor::ForgetActorsFromMemory(AActor* Actor)
+// {
+// 	if (!m_PerceptionComponent) return;
+// 	m_PerceptionComponent->ForgetActor(Actor);
+// }
 
 //FAIStimulus Stimulus
 // Perception->ForgetAll();
