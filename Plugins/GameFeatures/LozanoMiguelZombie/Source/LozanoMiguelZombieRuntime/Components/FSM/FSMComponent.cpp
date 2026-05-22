@@ -12,6 +12,9 @@
 #include "../Movement/SteeringComponent.h"
 #include "../StudentPerceptor/StudentPerceptor.h"
 #include "LozanoMiguelZombieRuntime/Components/BlackBoard/BBKeys.h"
+#include "Common/InventoryComponent.h"
+#include "Items/BaseItem.h"
+#include "Items/ItemType.h"
 
 
 TWeakObjectPtr<UAudioComponent> UFSMComponent::s_LiveAmbientMusicAC;
@@ -132,18 +135,37 @@ void UFSMComponent::DeferredInit()
 			*GetNameSafe(Owner));
 	}
 
-	// ADD THE FACT THAT MEMORY TICKS BEFORE STATE MACHINE 
+	// ADD THE FACT THAT MEMORY TICKS BEFORE STATE MACHINE
 	UStudentPerceptor * memory = Owner->FindComponentByClass<UStudentPerceptor>();
-	PrimaryComponentTick.AddPrerequisite(
-	memory,
-	memory->PrimaryComponentTick
-     );
+	if (memory)
+	{
+		PrimaryComponentTick.AddPrerequisite(memory, memory->PrimaryComponentTick);
+
+		// Subscribe to the reactive needs delegates. Non-dynamic multicast,
+		// so we bind with AddUObject (NOT AddDynamic, which would require
+		// UFUNCTION on the handlers). These are general "use a consumable"
+		// reactions that aren't tied to any specific state.
+		memory->m_StaminaLow.AddUObject(this, &UFSMComponent::HandleStaminaLow);
+		memory->m_HealthLow .AddUObject(this, &UFSMComponent::HandleHealthLow);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error,
+			TEXT("[FSM:%s] StudentPerceptor not found — needs delegates unbound."),
+			*GetNameSafe(Owner));
+	}
 	
 	
 	UWanderState * Wander = NewObject<UWanderState>(this);
 	ULootState * Loot = NewObject<ULootState>(this);
 	UCombatState * Combat = NewObject<UCombatState>(this);
 	UFleeState * Flee = NewObject<UFleeState>(this);
+	//Heal
+	//EatFood
+	
+	
+	
+	
 	
 	//ADD THE FEAR STATE 
 	
@@ -322,6 +344,49 @@ void UFSMComponent::ForceTransition(FName To)
 	TransitionTo(To);
 }
 
+namespace
+{
+	// Find the first inventory slot containing an item of DesiredType and
+	// call UseItem on it. Returns true on success.
+	// Static-local because nothing outside this file needs this helper.
+	bool UseFirstItemOfType(UInventoryComponent * Inv, EItemType DesiredType)
+	{
+		if (!Inv) return false;
+		const TArray<ABaseItem*>& Slots = Inv->GetInventory();
+		for (int32 i = 0; i < Slots.Num(); ++i)
+		{
+			if (Slots[i] && Slots[i]->GetItemType() == DesiredType)
+			{
+				return Inv->UseItem(i);
+			}
+		}
+		return false;
+	}
+}
+
+void UFSMComponent::HandleStaminaLow()
+{
+	// Reactive: eat the first food in the inventory the moment stamina
+	// drops below the perceptor's threshold. State-agnostic — runs even
+	// while in Combat or Loot.
+	AActor* Owner = GetOwner();
+	UInventoryComponent* Inv = Owner ? Owner->FindComponentByClass<UInventoryComponent>() : nullptr;
+	const bool bUsed = UseFirstItemOfType(Inv, EItemType::Food);
+	UE_LOG(LogTemp, Warning,
+		TEXT("[FSM] StaminaLow received — UseFood %s."),
+		bUsed ? TEXT("succeeded") : TEXT("failed (no food in inventory)"));
+}
+
+void UFSMComponent::HandleHealthLow()
+{
+	AActor* Owner = GetOwner();
+	UInventoryComponent * Inv = Owner ? Owner->FindComponentByClass<UInventoryComponent>() : nullptr;
+	const bool bUsed = UseFirstItemOfType(Inv, EItemType::Medkit);
+	UE_LOG(LogTemp, Warning,
+		TEXT("[FSM] HealthLow received — UseMedkit %s."),
+		bUsed ? TEXT("succeeded") : TEXT("failed (no medkit in inventory)"));
+}
+
 UBlackboardComponent * UFSMComponent::ResolveBlackboard() const
 {
 	APawn* Pawn = Cast<APawn>(GetOwner());
@@ -356,23 +421,3 @@ void UFSMComponent::TransitionTo(FName To)
 		UE_LOG(LogTemp, Log, TEXT("[FSM:%s] %s -> %s"),*GetNameSafe(Owner), *PrevName.ToString(), *To.ToString());
 	}
 }
-
-
-// static auto MakeBoolPredicate = [](FName Key)
-// {
-// 	return [Key](UBlackboardComponent* BB) -> bool
-// 	{
-// 		if (!BB) return false;
-// 		const FBlackboard::FKey ID = BB->GetKeyID(Key);
-// 		if (ID == FBlackboard::InvalidKey)
-// 		{
-// 			UE_LOG(LogTemp, Error, TEXT("Blackboard key %s missing"), *Key.ToString());
-// 			return false;
-// 		}
-// 		return BB->GetValueAsBool(Key);
-// 	};
-// };
-//
-// WanderToLoot.Predicate = MakeBoolPredicate(BBKeys::bArrivedAtInterestPoint);
-// ToLootWander.Predicate = MakeBoolPredicate(BBKeys::bLootDone);
-//

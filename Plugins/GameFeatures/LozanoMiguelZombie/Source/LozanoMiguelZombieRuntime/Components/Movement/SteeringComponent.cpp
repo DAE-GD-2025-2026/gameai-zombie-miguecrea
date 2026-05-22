@@ -4,6 +4,7 @@
 #include "SteeringComponent.h"
 #include "SurvivorAIController.h"
 #include "AITypes.h"
+#include "NavigationSystem.h"
 #include "Navigation/PathFollowingComponent.h"
 #include "GameFramework/FloatingPawnMovement.h"
 #include "GameFramework/SpectatorPawn.h"
@@ -12,6 +13,7 @@
 #include "../SpectatorComponent/SpectatorFollowComponent.h"
 #include "../MACROS/DebugMacro.h"
 #include "Survivor/SurvivorPawn.h"
+#include "NavigationPath.h"
 
 USteeringComponent::USteeringComponent()
 {
@@ -22,37 +24,166 @@ void USteeringComponent::Move(const FVector & ToLocation)
 {
 	if (!m_AIController)
 	{
-		
-		UE_LOG(LogTemp,Error, TEXT("Survivor AI Controller is NULL"));
+		UE_LOG(LogTemp, Error, TEXT("Move Failed -> AIController is NULL"));
 		return;
 	}
-	
+
+	APawn* ControlledPawn = m_AIController->GetPawn();
+
+	if (!ControlledPawn)
+	{
+		UE_LOG(LogTemp, Error, TEXT("Move Failed -> AIController has no possessed pawn"));
+		return;
+	}
+
+	// --------------------------------------------------------------------
+	// BASIC LOCATION VALIDATION
+	// --------------------------------------------------------------------
+
+	if (ToLocation.ContainsNaN())
+	{
+		UE_LOG(LogTemp, Error, TEXT("Move Failed -> Destination contains NaN"));
+		return;
+	}
+
+
+	// --------------------------------------------------------------------
+	// NAVIGATION SYSTEM CHECK
+	// --------------------------------------------------------------------
+
+	UNavigationSystemV1 * NavSystem =
+		FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
+
+	if (!NavSystem)
+	{
+		UE_LOG(LogTemp, Error, TEXT("Move Failed -> NavigationSystem is NULL"));
+		return;
+	}
+
+
+	// --------------------------------------------------------------------
+	// TRY TO BUILD A PATH BEFORE MOVING
+	// --------------------------------------------------------------------
+
+	UNavigationPath * TestPath =
+		NavSystem->FindPathToLocationSynchronously(
+			GetWorld(),
+			ControlledPawn->GetActorLocation(),
+			ToLocation);
+
+	if (!TestPath)
+	{
+		UE_LOG(LogTemp, Error, TEXT("Move Failed -> Path object is NULL"));
+	}
+	else
+	{
+		// UE_LOG(LogTemp, Warning,
+		// 	TEXT("Path Points Count: %d"),
+		// 	TestPath->PathPoints.Num());
+		//
+		// UE_LOG(LogTemp, Warning,
+		// 	TEXT("Path Is Valid: %s"),
+		// 	TestPath->IsValid() ? TEXT("TRUE") : TEXT("FALSE"));
+		//
+		// UE_LOG(LogTemp, Warning,
+		// 	TEXT("Path Is Partial: %s"),
+		// 	TestPath->IsPartial() ? TEXT("TRUE") : TEXT("FALSE"));
+	}
+
+	// --------------------------------------------------------------------
+	// MOVEMENT COMPONENT CHECK
+	// --------------------------------------------------------------------
+
+	UPawnMovementComponent * MoveComp =
+		ControlledPawn->GetMovementComponent();
+
+	if (!MoveComp)
+	{
+		UE_LOG(LogTemp, Error,
+			TEXT("Move Failed -> Pawn has NO movement component"));
+	}
+
+
+	// --------------------------------------------------------------------
+	// PATH FOLLOWING COMPONENT CHECK
+	// --------------------------------------------------------------------
+
+	if (!m_AIController->GetPathFollowingComponent())
+	{
+		UE_LOG(LogTemp, Error,
+			TEXT("Move Failed -> No PathFollowingComponent"));
+	}
+
+	// --------------------------------------------------------------------
+	// ACTUAL MOVE REQUEST
+	// --------------------------------------------------------------------
+
+	FNavLocation ProjectedLocation;
+	// Try to find nearest valid NavMesh position
+	bool bProjected =
+		NavSystem->ProjectPointToNavigation(
+			ToLocation,
+			ProjectedLocation,
+			FVector(300.f, 300.f, 500.f));
+
+	if (!bProjected)
+	{
+		UE_LOG(LogTemp, Error,
+			TEXT("Move Failed -> Could not project destination to NavMesh"));
+
+		// Optional:
+		// fallback to original location OR abort completely
+		return;
+	}
+
+	// --------------------------------------------------------------------
+	// MOVE REQUEST
+	// --------------------------------------------------------------------
+
 	FAIMoveRequest MoveReq;
 
-	MoveReq.SetGoalLocation(ToLocation);
-	MoveReq.SetAcceptanceRadius(20.f);
+	MoveReq.SetGoalLocation(ProjectedLocation.Location);
+	MoveReq.SetAcceptanceRadius(30.f);
 	MoveReq.SetUsePathfinding(true);
 	MoveReq.SetAllowPartialPath(true);
-	MoveReq.SetProjectGoalLocation(true);
+	MoveReq.SetProjectGoalLocation(false); // already projected manually
 	MoveReq.SetReachTestIncludesAgentRadius(true);
 	MoveReq.SetCanStrafe(true);
-	// MoveReq.SetNavigationFilter(MyFilterClass);
 
-	EPathFollowingRequestResult::Type Result = m_AIController->MoveTo(MoveReq, &m_NavPath);
+	EPathFollowingRequestResult::Type Result =
+		m_AIController->MoveTo(MoveReq, &m_NavPath);
 
 	switch (Result)
 	{
 	case EPathFollowingRequestResult::RequestSuccessful:
 
-		//UE_LOG(LogTemp, Warning, TEXT("Survivor AI Controller Succesfull"));
+		// UE_LOG(LogTemp, Warning,
+		// 	TEXT("Move Result -> SUCCESS"));
 		break;
+
 	case EPathFollowingRequestResult::AlreadyAtGoal:
 
-		UE_LOG(LogTemp, Warning, TEXT("Survivor AI Controller AlreadyAtGoal"));
+		UE_LOG(LogTemp, Warning,
+			TEXT("Move Result -> ALREADY AT GOAL"));
 		break;
+
 	case EPathFollowingRequestResult::Failed:
 
-		UE_LOG(LogTemp, Error, TEXT("Survivor AI Controller Failed"));
+		UE_LOG(LogTemp, Error,
+			TEXT("Move Result -> FAILED"));
+
+		// Extra useful debugging
+		if (m_NavPath.IsValid())
+		{
+			UE_LOG(LogTemp, Warning,
+				TEXT("NavPath exists but move failed"));
+		}
+		else
+		{
+			UE_LOG(LogTemp, Error,
+				TEXT("NavPath INVALID"));
+		}
+
 		break;
 	}
 	
@@ -75,7 +206,6 @@ void USteeringComponent::BeginPlay()
 		m_PawnOwner->bUseControllerRotationRoll  = false;
 	}
 
-	// Opportunistic warm-up — fine if it fails. GetAI() will retry lazily.
 	GetAI();
 }
 
@@ -113,7 +243,7 @@ void USteeringComponent::HandleAIMoveCompleted(FAIRequestID /*RequestID*/,
 
 void USteeringComponent::RenderPath()
 {
-	ASurvivorAIController* AI = GetAI();
+	ASurvivorAIController * AI = GetAI();
 	if (!AI) return;
 
 	UPathFollowingComponent* PFC = AI->GetPathFollowingComponent();

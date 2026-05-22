@@ -10,10 +10,15 @@
 #include "Perception/AISense_Damage.h"
 #include "Items/ItemType.h"
 #include "../FSM/InterestPoint.h"
+#include "../FSM/ReasonToMove.h"
 #include "StudentPerceptor.generated.h"
 
 class ASurvivorPawn;
 class ABaseZombie;
+
+
+DECLARE_MULTICAST_DELEGATE(UStaminaLow);
+DECLARE_MULTICAST_DELEGATE(UHealthLow);
 
 
 class UAIPerceptionComponent;
@@ -24,16 +29,41 @@ class LOZANOMIGUELZOMBIERUNTIME_API UStudentPerceptor : public UActorComponent
 	
 	
 private:
+	
+	 
 	UAIPerceptionComponent * m_PerceptionComponent;
 
 	ASurvivorPawn * m_SurvivorPawn = nullptr;
 public:
+	
+	UStaminaLow m_StaminaLow;
+	UHealthLow m_HealthLow;
 	UStudentPerceptor();
 	virtual void BeginPlay() override;
 	void TickComponent(
 	float DeltaTime,
 	ELevelTick TickType,
 	FActorComponentTickFunction* ThisTickFunction) override;
+
+	// --- Needs (low-stat) edge detection ----------------------------------
+	// These are continuous polls in Tick. We fire the delegate exactly once
+	// on the falling edge (value crosses below the *Enter threshold).
+	// The flag mirrors physical state ("am I currently low?") and re-arms
+	// automatically when value climbs above the *Exit threshold — the gap
+	// between Enter and Exit is hysteresis to prevent flapping.
+
+	UPROPERTY(EditDefaultsOnly, Category="Needs")
+	float StaminaLowEnter = 5.f;
+	UPROPERTY(EditDefaultsOnly, Category="Needs")
+	float StaminaLowExit  = 7.f;
+
+	UPROPERTY(EditDefaultsOnly, Category="Needs")
+	int   HealthLowEnter  = 2;
+	UPROPERTY(EditDefaultsOnly, Category="Needs")
+	int   HealthLowExit   = 4;
+
+	bool m_bWasStaminaLow = false;
+	bool m_bWasHealthLow  = false;
 
 ///////
 	UFUNCTION()
@@ -67,7 +97,11 @@ public:
 	
 	void ChangeColor();
 	
-	TArray<FInterestPoint> m_UnvisitedInterestPointsInBrain;
+	// I want to grab these Now 
+	TArray<FInterestPoint> m_WannaPointsInBrain;
+	//wont need now but later might come back
+	TArray<FInterestPoint> m_SaveForLaterPoints;
+	
 	TSet<AActor*> m_IgnoredActors; // Actors that I want to not put on memory 
 	//those you grabbed 
 	

@@ -20,6 +20,8 @@
 #include "GameFramework/Pawn.h"
 #include "../BlackBoard/BBKeys.h"
 
+
+
 UStudentPerceptor::UStudentPerceptor()
 {
 	PrimaryComponentTick.bCanEverTick = true;
@@ -76,15 +78,47 @@ void UStudentPerceptor::TickComponent(float DeltaTime, ELevelTick TickType,
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 	
-	// SendHealth
-	//SeeStamina 
+	
+	if (UBlackboardComponent * BB = GetBlackboard())
+	{
+		const bool bAnyZombieVisible = GetVisibleZombies().Num() > 0;
+		BB->SetValueAsBool(BBKeys::bThreatNearby, bAnyZombieVisible);
+	}
+	
+	// --- Edge-detect low stamina --------------------------------------
+	// Fires m_StaminaLow ONCE when stamina crosses below StaminaLowEnter.
+	// Re-arms when stamina climbs back above StaminaLowExit (hysteresis
+	// gap prevents flapping if the value hovers near the threshold).
+	if (m_Stamina)
+	{
+		const float S = m_Stamina->GetCurrentStamina();
+		if (!m_bWasStaminaLow && S <= StaminaLowEnter)
+		{
+			m_bWasStaminaLow = true;
+			m_StaminaLow.Broadcast();
+		}
+		else if (m_bWasStaminaLow && S >= StaminaLowExit)
+		{
+			m_bWasStaminaLow = false;   // silent re-arm
+		}
+	}
 
+	// --- Edge-detect low health ---------------------------------------
+	if (m_Health)
+	{
+		const int H = m_Health->GetHealth();
+		if (!m_bWasHealthLow && H <= HealthLowEnter)
+		{
+			m_bWasHealthLow = true;
+			m_HealthLow.Broadcast();
+		}
+		else if (m_bWasHealthLow && H >= HealthLowExit)
+		{
+			m_bWasHealthLow = false;
+		}
+	}
 	
-	
-	
-	
-	
-	for (const FInterestPoint& InterestPoint : m_UnvisitedInterestPointsInBrain)
+	for (const FInterestPoint & InterestPoint : m_WannaPointsInBrain)
 	{
 		AActor * A = InterestPoint.Actor.Get();
 		if (A && CurrentColor)
@@ -100,6 +134,26 @@ void UStudentPerceptor::TickComponent(float DeltaTime, ELevelTick TickType,
 		}
 	}
 	
+	for (const FInterestPoint & InterestPoint : m_SaveForLaterPoints)
+	{
+		// AActor * A = InterestPoint.Actor.Get();
+		// if (A && CurrentColor)
+		// {
+		// 	if (!InterestPoint.m_Visited)
+		// 	{
+		// 		DRAW_CIRCLE(GetWorld(), A->GetActorLocation(), 30.f, *CurrentColor, 3.f);
+		// 	}
+		// 	else
+		// 	{
+		// 		DRAW_CIRCLE(GetWorld(), A->GetActorLocation(), 30.f, FColor::Yellow, 3.f);
+		// 	}
+		// }
+	}
+
+
+	// We deliberately do NOT touch bThreatGone here. That flag is a one-shot
+	// pulse owned by CombatState's safe-timer; setting it from the perceptor
+	// would race with the timer and cause Combat<->Wander bouncing.
 }
 
 void UStudentPerceptor::OnPerceptionUpdated(AActor * Actor, FAIStimulus Stimulus)
@@ -112,20 +166,27 @@ void UStudentPerceptor::OnPerceptionUpdated(AActor * Actor, FAIStimulus Stimulus
 			if (Cast<AHouse>(Actor) || Cast<ABaseItem>(Actor))
 			{
 				ABaseItem * Item = Cast<ABaseItem>(Actor);
-				if (Item && Item->GetItemType() == EItemType::Garbage) return;
+				if (Item)
+				{
+					if (Item->GetItemType() == EItemType::Garbage) return;
+					
+					//if ()
+				}
+				//needs Item inmediatly
+				
 				FInterestPoint InterestPoint;
 				InterestPoint.Actor = Actor;
 				InterestPoint.m_Visited = false;
-				m_UnvisitedInterestPointsInBrain.AddUnique(InterestPoint);
-				auto NumberInterestPointsInMemory = m_UnvisitedInterestPointsInBrain.Num();
+				m_WannaPointsInBrain.AddUnique(InterestPoint);
 			}
 			
 			if (Cast<ABaseZombie>(Actor))
 			{
 				if (UBlackboardComponent * BB = GetBlackboard())
 				{
+					// Only bThreatNearby — bThreatGone is Combat's
+					// exclusive responsibility (see TickComponent comment).
 					BB->SetValueAsBool(BBKeys::bThreatNearby, true);
-					BB->SetValueAsBool(BBKeys::bThreatGone,   false);
 				}
 			}
 		}
@@ -143,16 +204,16 @@ void UStudentPerceptor::OnTargetForgotten(AActor* Actor)
 FInterestPoint * UStudentPerceptor::GetBestInterestPoint()
 {
 	FInterestPoint * BestInterestPoint = nullptr;
-
-	if (m_UnvisitedInterestPointsInBrain.IsEmpty())
+	
+	if (m_WannaPointsInBrain.IsEmpty())
 		return nullptr;
 
-	AActor* OwnerActor = GetOwner();
+	AActor * OwnerActor = GetOwner();
 	const FVector MyLoc = OwnerActor ? OwnerActor->GetActorLocation() : FVector::ZeroVector;
 
 	float BestScore = 0.f;
 
-	for (FInterestPoint & InterestPoint : m_UnvisitedInterestPointsInBrain)
+	for (FInterestPoint & InterestPoint : m_WannaPointsInBrain)
 	{
 		if (InterestPoint.m_Visited)
 			continue;
@@ -166,11 +227,11 @@ FInterestPoint * UStudentPerceptor::GetBestInterestPoint()
 		if (Cast<AHouse>(Target))
 		{
 			Score = GetHouseBaseUtility();
+			 
 		}
-		else if (ABaseItem* Item = Cast<ABaseItem>(Target))
+		else if (ABaseItem * Item = Cast<ABaseItem>(Target))
 		{
 			const EItemType ItemType = Item->GetItemType();
-
 			Score = GetItemBaseUtility(ItemType);
 			Score = ApplyContextModifier(Score, ItemType);
 		}
@@ -301,7 +362,7 @@ TArray<ABaseZombie*> UStudentPerceptor::GetVisibleZombies ()
 
 void UStudentPerceptor::ForgetInterestPoints(const FInterestPoint& InterestPoint)
 {
-	m_UnvisitedInterestPointsInBrain.Remove(InterestPoint);
+	m_WannaPointsInBrain.Remove(InterestPoint);
 }
 
 UBlackboardComponent * UStudentPerceptor::GetBlackboard() const

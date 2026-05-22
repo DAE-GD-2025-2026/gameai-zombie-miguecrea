@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "ReasonToMove.h"
 #include "InterestPoint.generated.h"
 
 USTRUCT(BlueprintType)

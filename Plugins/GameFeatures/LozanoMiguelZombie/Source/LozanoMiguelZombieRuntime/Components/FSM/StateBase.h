@@ -3,7 +3,8 @@
 #include "CoreMinimal.h"
 #include "UObject/Object.h"
 #include "GameFramework/Actor.h"
-#include"InterestPoint.h"
+#include "InterestPoint.h"
+#include "ReasonToMove.h"
 #include "StateBase.generated.h"
 
 namespace EPathFollowingResult
@@ -67,13 +68,6 @@ protected:
 
 
 
-UENUM(BlueprintType)
-enum class EReasonToMove : uint8
-{
-	VisitHouse,
-	Loot,
-	Explore
-};
 
 UCLASS()
 class LOZANOMIGUELZOMBIERUNTIME_API UWanderState : public UStateBase
@@ -92,6 +86,12 @@ protected:
 	
 	EReasonToMove m_ReasonToMove;
 	FInterestPoint * m_BestInterest;
+	
+	FInterestPoint * m_previousInterest;
+	bool m_GoingToPatrolPoint = false;
+	
+	
+	bool m_FirstFrame = true;
 	
 
 	UFUNCTION()
@@ -201,7 +201,7 @@ protected:
 
 	// How long to stand at the item after aligning, before transitioning out.
 	UPROPERTY(EditDefaultsOnly, Category="Loot")
-	float LootDuration = 0.5f;
+	float LootDuration = 0.3f;
 
 private:
 	ELootPhase m_Phase           = ELootPhase::AlignToItem;
@@ -210,6 +210,7 @@ private:
 	FRotator   m_ScanBaseRotation= FRotator::ZeroRotator;
 	float      m_ScanElapsed     = 0.f;
 	float      m_LootTimer       = 0.f;
+	std::optional<int> m_TargetInventoryIndex;
 
 	// Loaded once in OnInit from the plugin Content folder. UPROPERTY so the
 	// GC doesn't collect it out from under us between Loot entries.
@@ -220,7 +221,9 @@ private:
 	void TickAlignToward(float Dt, AActor* Owner, const FRotator& Target) const;
 	// True when actor yaw is within AlignToleranceDeg of Target's yaw.
 	bool IsAlignedTo(AActor* Owner, const FRotator& Target) const;
-	bool TryGrabItem(class ABaseItem * Item);
+	bool WillIGrabThisItem(class ABaseItem * Item);
+	
+	 void GrabItem(int32 Slot);
 
 	
 };
@@ -245,8 +248,25 @@ protected:
 	virtual void OnExit_Implementation(AActor* Owner) override;
 
 	bool HasAnyWeapon = false;
-	const float m_TimeUntilItIsSafe = 5.f;
+	const float m_TimeUntilItIsSafe = 3.f;
 	float m_Timer = 0.f;
+	
+	bool m_CanShoot = true;
+	
+	FTimerHandle m_NoMoreZombiesAroundTimer;
+	
+	FTimerHandle m_OhShitSounds;
+	FTimerHandle m_EmptyWeapondSound;
+	FTimerHandle m_ResetShootingFlag;
+	
+	void PlayOhShitSound();
+	void PlayEmptyWeaponSound();
+	void ResetShootFlag();
+	
+	void GoBackToWander();
+	
+	
+	
 
 	// --- Tuning -----------------------------------------------------------
 
@@ -283,10 +303,10 @@ private:
 		const TArray<class ABaseZombie*>& Zombies, AActor* Owner) const;
 
 	// Inventory slot containing a weapon, preferring Shotgun. -1 if none.
-	int32 FindWeaponSlot() const;
+	TArray<int32>FindWeaponSlots() const;
 
 	// Smooth manual yaw rotation toward Threat. Pitch/roll forced to zero.
-	void FaceTarget(float Dt, AActor* Owner, AActor* Threat) const;
+	bool FaceTarget(float Dt, AActor* Owner, AActor* Threat) const;
 
 	// Recompute (away-from-threat + lateral) destination and re-issue Move.
 	void IssueRetreatMove(AActor* Owner, AActor* Threat);
@@ -295,6 +315,31 @@ private:
 	// actually see the trace. Persists 1 second. Doesn't damage anything —
 	// the host's UseItem still does the real shoot/damage.
 	void DrawWeaponTrace(AActor* Owner, class ABaseItem* WeaponItem) const;
+
+	// Picks the sound matching the weapon type and plays it at the survivor's
+	// location. No-op if the weapon isn't a Pistol/Shotgun or the sound
+	// failed to load.
+	void PlayWeaponSound(AActor* Owner, class ABaseItem* WeaponItem) const;
+
+	// Loaded once in OnInit from the plugin Content folder. UPROPERTY so the
+	// GC doesn't sweep them between firings.
+	UPROPERTY()
+	TObjectPtr<class USoundBase> m_PistolSound  = nullptr;
+
+	UPROPERTY()
+	TObjectPtr<class USoundBase> m_ShotgunSound = nullptr;
+
+	// One-shot scream when the survivor first enters Combat. The 5-second
+	// safe-timer (m_TimeUntilItIsSafe) keeps Combat from re-entering rapidly,
+	// so this won't spam.
+	UPROPERTY()
+	TObjectPtr<class USoundBase> m_PanicSound = nullptr;
+
+	// Dry-fire click for when the selected weapon has 0 ammo. The host's
+	// UseItem silently early-returns at zero, so we detect the empty
+	// magazine on the plugin side and play this instead of the gun shot.
+	UPROPERTY()
+	TObjectPtr<class USoundBase> m_EmptyGunSound = nullptr;
 };
 
 UCLASS()
