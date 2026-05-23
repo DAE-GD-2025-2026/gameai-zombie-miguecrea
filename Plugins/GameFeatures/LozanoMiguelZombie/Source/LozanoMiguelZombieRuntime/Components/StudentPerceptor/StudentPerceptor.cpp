@@ -19,6 +19,10 @@
 #include "BehaviorTree/BlackboardComponent.h"
 #include "GameFramework/Pawn.h"
 #include "../BlackBoard/BBKeys.h"
+#include "Perception/AIPerceptionStimuliSourceComponent.h"
+#include "EngineUtils.h" // TActorIterator
+#include "Kismet/GameplayStatics.h"
+
 
 
 
@@ -44,6 +48,7 @@ void UStudentPerceptor::BeginPlay()
 		0.1f,
 		true
 	);
+	
 }
 
 void UStudentPerceptor::DeferredInit()
@@ -79,16 +84,8 @@ void UStudentPerceptor::TickComponent(float DeltaTime, ELevelTick TickType,
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 	
 	
-	if (UBlackboardComponent * BB = GetBlackboard())
-	{
-		const bool bAnyZombieVisible = GetVisibleZombies().Num() > 0;
-		BB->SetValueAsBool(BBKeys::bThreatNearby, bAnyZombieVisible);
-	}
-	
-	// --- Edge-detect low stamina --------------------------------------
-	// Fires m_StaminaLow ONCE when stamina crosses below StaminaLowEnter.
-	// Re-arms when stamina climbs back above StaminaLowExit (hysteresis
-	// gap prevents flapping if the value hovers near the threshold).
+	AddZombiesToMemory();
+
 	if (m_Stamina)
 	{
 		const float S = m_Stamina->GetCurrentStamina();
@@ -133,71 +130,47 @@ void UStudentPerceptor::TickComponent(float DeltaTime, ELevelTick TickType,
 			}
 		}
 	}
-	
-	for (const FInterestPoint & InterestPoint : m_SaveForLaterPoints)
+
+	for (const FInterestPoint& InterestPoint : m_SaveForLaterPoints)
 	{
-		// AActor * A = InterestPoint.Actor.Get();
-		// if (A && CurrentColor)
-		// {
-		// 	if (!InterestPoint.m_Visited)
-		// 	{
-		// 		DRAW_CIRCLE(GetWorld(), A->GetActorLocation(), 30.f, *CurrentColor, 3.f);
-		// 	}
-		// 	else
-		// 	{
-		// 		DRAW_CIRCLE(GetWorld(), A->GetActorLocation(), 30.f, FColor::Yellow, 3.f);
-		// 	}
-		// }
+		AActor* A = InterestPoint.Actor.Get();
+		if (A)
+		{
+			DRAW_CIRCLE(GetWorld(), A->GetActorLocation(), 30.f, FColor::Turquoise, 3.f);
+		}
 	}
-
-
-	// We deliberately do NOT touch bThreatGone here. That flag is a one-shot
-	// pulse owned by CombatState's safe-timer; setting it from the perceptor
-	// would race with the timer and cause Combat<->Wander bouncing.
+	
 }
 
 void UStudentPerceptor::OnPerceptionUpdated(AActor * Actor, FAIStimulus Stimulus)
 {
 	
-	if (Stimulus.Type == UAISense::GetSenseID<UAISense_Sight>())
-	{
-		if (Stimulus.WasSuccessfullySensed())
-		{
-			if (Cast<AHouse>(Actor) || Cast<ABaseItem>(Actor))
-			{
-				ABaseItem * Item = Cast<ABaseItem>(Actor);
-				if (Item)
-				{
-					if (Item->GetItemType() == EItemType::Garbage) return;
-					
-					//if ()
-				}
-				//needs Item inmediatly
-				
-				FInterestPoint InterestPoint;
-				InterestPoint.Actor = Actor;
-				InterestPoint.m_Visited = false;
-				m_WannaPointsInBrain.AddUnique(InterestPoint);
-			}
-			
-			if (Cast<ABaseZombie>(Actor))
-			{
-				if (UBlackboardComponent * BB = GetBlackboard())
-				{
-					// Only bThreatNearby — bThreatGone is Combat's
-					// exclusive responsibility (see TickComponent comment).
-					BB->SetValueAsBool(BBKeys::bThreatNearby, true);
-				}
-			}
-		}
-		
-	}
+	if (Stimulus.Type != UAISense::GetSenseID<UAISense_Sight>())
+		return;
+	const bool bSensed = Stimulus.WasSuccessfullySensed();
 	
+	if (!bSensed) return;
 
+	if (Cast<AHouse>(Actor) || Cast<ABaseItem>(Actor))
+	{
+		ABaseItem* Item = Cast<ABaseItem>(Actor);
+		if (Item && Item->GetItemType() == EItemType::Garbage) return;
+
+		FInterestPoint InterestPoint;
+		InterestPoint.Actor    = Actor;
+		InterestPoint.m_Visited = false;
+		m_WannaPointsInBrain.AddUnique(InterestPoint);
+	}
 }
 
-void UStudentPerceptor::OnTargetForgotten(AActor* Actor)
+void UStudentPerceptor::OnTargetForgotten(AActor * Actor)
 {
+	// when Stimuli expired age is 5 seconds will forget after 5 seconds 
+	UE_LOG(LogTemp,Error,TEXT("Target Forgotten"))
+	if (ABaseZombie * Z = Cast<ABaseZombie>(Actor))
+	{
+		m_VisibleZombies.Remove(Z);
+	}
 }
 
 
@@ -212,7 +185,6 @@ FInterestPoint * UStudentPerceptor::GetBestInterestPoint()
 	const FVector MyLoc = OwnerActor ? OwnerActor->GetActorLocation() : FVector::ZeroVector;
 
 	float BestScore = 0.f;
-
 	for (FInterestPoint & InterestPoint : m_WannaPointsInBrain)
 	{
 		if (InterestPoint.m_Visited)
@@ -271,7 +243,7 @@ float UStudentPerceptor::GetHouseBaseUtility()
 	// distance always wins. Houses are still picked when no item is in
 	// memory or when an item is significantly further away — the distance
 	// falloff in GetBestInterestPoint does the rest.
-	return 8.f;
+	return 5.f;
 }
 
 float UStudentPerceptor::ApplyContextModifier(float base, const EItemType& ItemType)
@@ -338,26 +310,23 @@ void UStudentPerceptor::ChangeColor()
 }
 
 
-TArray<ABaseZombie*> UStudentPerceptor::GetVisibleZombies ()
+TArray<ABaseZombie*> UStudentPerceptor::GetVisibleZombies()
 {
-	TArray<ABaseZombie*> Zombies;
-	if (!m_PerceptionComponent) return Zombies;
-	
-	TArray<AActor*> AllSeen;
-	m_PerceptionComponent->GetCurrentlyPerceivedActors(
-		UAISense_Sight::StaticClass(),
-		AllSeen
-	);
+	TArray<ABaseZombie*> Result;
+	Result.Reserve(m_VisibleZombies.Num());
 
-	Zombies.Reserve(AllSeen.Num());
-	for (AActor * A : AllSeen)
+	for (auto It = m_VisibleZombies.CreateIterator(); It; ++It)
 	{
-		if (ABaseZombie* Z = Cast<ABaseZombie>(A))
+		if (ABaseZombie * Z = (*It).Get())
 		{
-			Zombies.Add(Z);
+			Result.Add(Z);
+		}
+		else
+		{
+			It.RemoveCurrent(); // weak ptr expired — clean up the set
 		}
 	}
-	return Zombies;
+	return Result;
 }
 
 void UStudentPerceptor::ForgetInterestPoints(const FInterestPoint& InterestPoint)
@@ -371,6 +340,186 @@ UBlackboardComponent * UStudentPerceptor::GetBlackboard() const
 	if (!Pawn) return nullptr;
 	AAIController * AI = Cast<AAIController>(Pawn->GetController());
 	return AI ? AI->GetBlackboardComponent() : nullptr;
+}
+
+void UStudentPerceptor::LogUnperceivedZombies() const
+{
+	UWorld* W = GetWorld();
+	if (!W) return;
+
+	int32 TotalZombies = 0;
+	int32 BadZombies   = 0;
+
+	// Iterate every ABaseZombie in the world. TActorIterator is the
+	// canonical way; UGameplayStatics::GetAllActorsOfClass also works but
+	// allocates an array we don't need.
+	for (TActorIterator<ABaseZombie> It(W); It; ++It)
+	{
+		ABaseZombie* Z = *It;
+		if (!IsValid(Z)) continue;
+		++TotalZombies;
+
+		// Look for a stimuli source component. This is the standard way
+		// to make an actor visible to AI perception. Manual registration
+		// via UAIPerceptionSystem::RegisterPerceptionStimuliSource also
+		// works but is rarer — if you use that elsewhere, this audit will
+		// false-positive that zombie.
+		UAIPerceptionStimuliSourceComponent* Source =
+			Z->FindComponentByClass<UAIPerceptionStimuliSourceComponent>();
+
+		if (!Source)
+		{
+			++BadZombies;
+			UE_LOG(LogTemp, Error,
+				TEXT("[Audit] %s has NO AIPerceptionStimuliSourceComponent — "
+				     "survivor cannot see this zombie."),
+				*Z->GetName());
+			continue;
+		}
+
+		// bAutoRegister and RegisterAsSourceForSenses are protected members
+		// (BlueprintReadOnly but not C++-public), so we can't read them
+		// directly. Use reflection to peek at the protected UPROPERTYs.
+		const UClass* SourceClass = Source->GetClass();
+
+		// --- bAutoRegister (uint32 bitfield) -----------------------------
+		if (const FBoolProperty* AutoProp =
+			FindFProperty<FBoolProperty>(SourceClass, TEXT("bAutoRegister")))
+		{
+			if (!AutoProp->GetPropertyValue_InContainer(Source))
+			{
+				++BadZombies;
+				UE_LOG(LogTemp, Error,
+					TEXT("[Audit] %s: bAutoRegister=false. "
+					     "Tick 'Auto Register as Source' in the editor."),
+					*Z->GetName());
+				continue;
+			}
+		}
+
+		// --- RegisterAsSourceForSenses (TArray<TSubclassOf<UAISense>>) ---
+		bool bRegistersSight = false;
+		if (const FArrayProperty* ArrProp =
+			FindFProperty<FArrayProperty>(SourceClass, TEXT("RegisterAsSourceForSenses")))
+		{
+			FScriptArrayHelper Helper(ArrProp,
+				ArrProp->ContainerPtrToValuePtr<void>(Source));
+			for (int32 i = 0; i < Helper.Num(); ++i)
+			{
+				const UClass* SenseClass =
+					*reinterpret_cast<UClass* const*>(Helper.GetRawPtr(i));
+				if (SenseClass == UAISense_Sight::StaticClass())
+				{
+					bRegistersSight = true;
+					break;
+				}
+			}
+		}
+
+		if (!bRegistersSight)
+		{
+			++BadZombies;
+			UE_LOG(LogTemp, Error,
+				TEXT("[Audit] %s registers as a source, but NOT for AISense_Sight. "
+				     "Add AISense_Sight to 'Register as Source for Senses'."),
+				*Z->GetName());
+			continue;
+		}
+	}
+
+	if (BadZombies == 0)
+	{
+		UE_LOG(LogTemp, Warning,
+			TEXT("[Audit] All %d ABaseZombie actors are properly registered for Sight."),
+			TotalZombies);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning,
+			TEXT("[Audit] Zombie audit: %d total, %d NOT perceivable for Sight."),
+			TotalZombies, BadZombies);
+	}
+}
+
+void UStudentPerceptor::Suicide()
+{
+	if (UBlackboardComponent* BB = GetBlackboard())
+	{
+		UE_LOG(LogTemp,Warning,TEXT("Suiciding"))
+		BB->SetValueAsBool(BBKeys::bShouldSuicide,true);
+	}
+	
+}
+
+void UStudentPerceptor::AddZombiesToMemory()
+{
+	// Perception fallback: when AIPerception's sight sense misses a nearby
+	// zombie (one-frame occlusion, edge-of-cone flutter, slow update tick),
+	// manually scan all ABaseZombie actors in the world and add anything
+	// within DetectionRadius to the visible set. No occlusion check —
+	// strictly Euclidean distance. Think "they're close enough that the
+	// survivor would hear/feel them even without a clean line of sight."
+
+
+	UWorld * W = GetWorld();
+	if (!W) return;
+	AActor* OwnerActor = GetOwner();
+	if (!OwnerActor) return;
+
+	DRAW_CIRCLE(GetWorld(), GetOwner()->GetActorLocation(), m_EnemyDetectionRadius, FColor::White, 3.f);
+	for (const auto& Zombie : m_VisibleZombies)
+	{
+		if (!Zombie.IsValid()) continue;
+
+		DRAW_CIRCLE(GetWorld(), Zombie->GetActorLocation(), 30.f, FColor::Emerald, 3.f);
+	}
+
+	//  if there is a wall 
+	const FVector MyLoc = OwnerActor->GetActorLocation();
+	float DetectionRadiusSq = m_EnemyDetectionRadius * m_EnemyDetectionRadius;
+
+	bool bAnyZombieInRange = false;
+
+	for (TActorIterator<ABaseZombie> It(W); It; ++It)
+	{
+		ABaseZombie* Z = *It;
+		if (!IsValid(Z)) continue;
+		const float DistSq = FVector::DistSquared(MyLoc, Z->GetActorLocation());
+		if (DistSq <= DetectionRadiusSq)
+		{
+			m_VisibleZombies.Add(Z);
+			bAnyZombieInRange = true;
+			UBlackboardComponent* BB = GetBlackboard();
+
+			if (!BB->GetValueAsBool(BBKeys::bShouldSuicide))
+			{
+				BB->SetValueAsBool(BBKeys::bThreatNearby, true);
+			}
+			else
+			{
+				//Suicide is the end makes no sense to make Any calculations of enemies 
+				return;
+			}
+		}
+		else
+		{
+			m_VisibleZombies.Remove(Z);
+		}
+	}
+	
+	
+	
+//	UE_LOG(LogTemp,Warning,TEXT(" Zombies in range %b"),bAnyZombieInRange)
+	
+	
+	// if (!bAnyZombieInRange) return;
+	// UBlackboardComponent * BB = GetBlackboard();
+	// if (!BB) return;
+	// bool ShouldSuicide = BB->GetValueAsBool(BBKeys::bShouldSuicide);
+	// if (ShouldSuicide) return;
+	// BB->SetValueAsBool(BBKeys::bThreatNearby, true);
+
+	
 }
 
 // TArray<AActor*> UStudentPerceptor::GetSeenActorsInMemory()

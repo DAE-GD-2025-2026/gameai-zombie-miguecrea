@@ -45,7 +45,7 @@ protected:
 	float DefaultSpeed{400.0f};
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
-	UAIPerceptionComponent* PerceptionComp;
+	UAIPerceptionComponent * PerceptionComp;
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	UAISenseConfig_Sight* SightConfig;

@@ -43,9 +43,7 @@ void UFSMComponent::BeginPlay()
 		W->GetTimerManager().SetTimerForNextTick(
 			FTimerDelegate::CreateUObject(this, &UFSMComponent::DeferredInit));
 	}
-
-	// Background ambient — only the first FSM to BeginPlay wins this race.
-	// All subsequent FSMs see the static flag and skip; one shared track.
+	
 	StartAmbientMusicOnce();
 }
 
@@ -160,19 +158,13 @@ void UFSMComponent::DeferredInit()
 	ULootState * Loot = NewObject<ULootState>(this);
 	UCombatState * Combat = NewObject<UCombatState>(this);
 	UFleeState * Flee = NewObject<UFleeState>(this);
-	//Heal
-	//EatFood
-	
-	
-	
-	
-	
-	//ADD THE FEAR STATE 
+	USuicideState * Suicide = NewObject<USuicideState>(this);
 	
 	RegisterState(Wander->GetStateName(), Wander);
 	RegisterState(Loot->GetStateName(),Loot);
 	RegisterState(Combat->GetStateName(),Combat);
 	RegisterState(Flee->GetStateName(),Flee);
+	RegisterState(Suicide->GetStateName(),Suicide);
 	
 	FFSMTransition WanderToLoot;
 	WanderToLoot.From = Wander->GetStateName();
@@ -214,10 +206,7 @@ void UFSMComponent::DeferredInit()
 	AddTransition(WanderToLoot);  //
 	AddTransition(ToLootWander);  //
 
-	// --- Combat interrupt --------------------------------------------------
-	// Any-state -> Combat the moment a threat is visible. Evaluated before
-	// the per-state transitions above, so a zombie spotted mid-Loot stops
-	// Loot immediately.
+	
 	FFSMGlobalTransition ToCombat;
 	ToCombat.To = Combat->GetStateName();
 	ToCombat.Predicate = [](UBlackboardComponent * BB)
@@ -231,10 +220,21 @@ void UFSMComponent::DeferredInit()
 		return BB->GetValueAsBool(BBKeys::bThreatNearby);
 	};
 	AddGlobalTransition(ToCombat);
-
-	// Return path: Combat -> Wander once the threat clears. This is a
-	// regular per-state transition (not a global) so it can't accidentally
-	// fire while we're in another state.
+	
+	FFSMGlobalTransition ToSuicide;
+	ToSuicide.To = Suicide->GetStateName();
+	ToSuicide.Predicate = [](UBlackboardComponent * BB)
+	{
+		const FBlackboard::FKey KeyID = BB->GetKeyID(BBKeys::bShouldSuicide);
+		if (KeyID == FBlackboard::InvalidKey)
+		{
+			UE_LOG(LogTemp, Error, TEXT("Blackboard key bShouldSuicide does not exist"));
+			return false;
+		}
+		return BB->GetValueAsBool(BBKeys::bShouldSuicide);
+	};
+	AddGlobalTransition(ToSuicide);
+	
 	FFSMTransition CombatToWander;
 	CombatToWander.From      = Combat->GetStateName();
 	CombatToWander.To        = Wander->GetStateName();

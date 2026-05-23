@@ -742,7 +742,7 @@ void UCombatState::OnEnter_Implementation(AActor* Owner)
 	
 }
 
-void UCombatState::OnTick_Implementation(float DeltaTime, AActor* Owner)
+void UCombatState::OnTick_Implementation(float DeltaTime, AActor * Owner)
 {
 	if (!Owner || !Memory.IsValid()) return;
 
@@ -775,7 +775,7 @@ void UCombatState::OnTick_Implementation(float DeltaTime, AActor* Owner)
 	auto Zombies = Memory->GetVisibleZombies();
 	if (Zombies.IsEmpty())
 	{
-		FTimerManager& TM = GetWorld()->GetTimerManager();
+		FTimerManager & TM = GetWorld()->GetTimerManager();
 		if (!TM.IsTimerActive(m_NoMoreZombiesAroundTimer))
 		{
 			TM.SetTimer(
@@ -796,20 +796,17 @@ void UCombatState::OnTick_Implementation(float DeltaTime, AActor* Owner)
 	m_CurrentTarget = Target;
 	bool IsFacingTarget  = FaceTarget(DeltaTime, Owner, Target);
 	
-	SteeringComponent->Move(Owner->GetActorLocation() + FVector::RightVector * 100.f);
-	
-	UE_LOG(LogTemp, Warning,
-	TEXT("IsFacingTarget: %s | DeltaTime: %f | Target: %s"),
-	IsFacingTarget ? TEXT("true") : TEXT("false"),
-	DeltaTime,
-	Target ? *Target->GetName() : TEXT("NULL"));
+
 	
 	if (IsFacingTarget && m_CanShoot)
 	{
 		const TArray<int32> WeaponSlots = FindWeaponSlots();
 		if (WeaponSlots.IsEmpty())
 		{
-			UE_LOG(LogTemp,Warning, TEXT("[Combat] Weapons are not available."));
+			// if it remembers something otehrwise Suicide 
+			
+			FSM->Blackboard->SetValueAsBool(BBKeys::bShouldSuicide,true);
+			UE_LOG(LogTemp,Warning, TEXT("[Combat] Weapons are not available Suiciding."));
 			return;
 		}
 		
@@ -851,11 +848,13 @@ void UCombatState::OnTick_Implementation(float DeltaTime, AActor* Owner)
 						m_ResetShootingFlag,
 						this,
 						&UCombatState::ResetShootFlag,
-						2.f,
+						1.f,
 						false);
 				}
 				else
 				{
+					
+					SteeringComponent->Move(Owner->GetActorLocation() + Target->GetActorForwardVector() * 5.f);
 					UE_LOG(LogTemp,Warning,TEXT(" SHOOT"))
 					Inventory->UseItem(Slot);
 					PlayWeaponSound(Owner, WeaponItem);
@@ -866,7 +865,7 @@ void UCombatState::OnTick_Implementation(float DeltaTime, AActor* Owner)
 						m_ResetShootingFlag,
 						this,
 						&UCombatState::ResetShootFlag,
-						1.5f,
+						0.7f,
 						false);
 					int value  = WeaponItem->GetValue();
 					
@@ -910,7 +909,7 @@ void UCombatState::GoBackToWander()
 // ---- Helpers ---------------------------------------------------------------
 
 ABaseZombie* UCombatState::PickClosestZombie(
-	const TArray<ABaseZombie*>& Zombies, AActor* Owner) const
+	const TArray<ABaseZombie*> & Zombies, AActor* Owner) const
 {
 	if (Zombies.IsEmpty() || !Owner) return nullptr;
 	const FVector MyLoc = Owner->GetActorLocation();
@@ -978,12 +977,13 @@ bool UCombatState::FaceTarget(float Dt, AActor * Owner, AActor * Threat) const
 	
 	const float DeltaYaw = FMath::Abs(FRotator::NormalizeAxis(Owner->GetActorRotation().Yaw - TargetRot.Yaw));
 	
-	return DeltaYaw <= 1.0f;
+	return DeltaYaw <= 2.0f;
 	
 }
 
 void UCombatState::OnExit_Implementation(AActor* Owner)
 {
+	ResetShootFlag();
 	m_CurrentTarget.Reset();
 	m_Timer       = 0.f;
 	m_ZigzagTimer = 0.f;
@@ -1142,5 +1142,137 @@ void UFleeState::OnTick_Implementation(float DeltaTime, AActor* Owner)
 void UFleeState::OnExit_Implementation(AActor * Owner)
 {
 	//make it rotate again 
+}
+
+
+
+USuicideState::USuicideState()
+	: UStateBase()
+{
+	
+}
+
+void USuicideState::OnInit()
+{
+	// Load both SFX once from the plugin Content folder. ExplosionSound is
+	// played at LocationToExplode by Explode(); TickBomb plays in OnEnter
+	// so the survivor audibly arms before the boom.
+	
+	
+	SteeringComponent = GetSibling<USteeringComponent>();
+	
+	static const TCHAR* ExplosionPath =
+		TEXT("/LozanoMiguelZombie/Sounds/ExplosionSound.ExplosionSound");
+	static const TCHAR* TickBombPath =
+		TEXT("/LozanoMiguelZombie/Sounds/freesound_community-ticking-bomb-90319.freesound_community-ticking-bomb-90319");
+
+	m_ExplosionSound = LoadObject<USoundBase>(nullptr, ExplosionPath);
+	m_TickBombSound  = LoadObject<USoundBase>(nullptr, TickBombPath);
+
+	if (!m_ExplosionSound)
+	{
+		UE_LOG(LogTemp, Error,
+			TEXT("[Suicide] Failed to load explosion sound at '%s'."), ExplosionPath);
+	}
+	if (!m_TickBombSound)
+	{
+		UE_LOG(LogTemp, Error,
+			TEXT("[Suicide] Failed to load tick-bomb sound at '%s'."), TickBombPath);
+	}
+}
+
+
+void USuicideState::OnEnter_Implementation(AActor* Owner)
+{
+	
+	FSM->Blackboard->SetValueAsBool(BBKeys::bThreatNearby,false);
+	FSM->Blackboard->SetValueAsBool(BBKeys::bThreatGone,false);
+	UE_LOG(LogTemp, Warning, TEXT("Suicide State OnEnter "));
+
+	if (SteeringComponent.IsValid())
+	{
+		SteeringComponent->StopMoving();
+	}
+	
+	if (!Owner) return;
+	LocationToExplode = Owner->GetActorLocation();
+
+	// Tick-bomb SFX at the survivor — fire-and-forget. If the asset is
+	// shorter than the 3-second countdown it'll just end early; the
+	// explosion sound takes over visually.
+	if (m_TickBombSound)
+	{
+		UGameplayStatics::PlaySoundAtLocation(
+			Owner, m_TickBombSound, Owner->GetActorLocation());
+	}
+
+	FTimerHandle ExplodeTimer;
+	GetWorld()->GetTimerManager().SetTimer(
+		ExplodeTimer,
+		this,
+		&USuicideState::Explode,
+		3.f,
+		false);
+}
+
+void USuicideState::OnTick_Implementation(float DeltaTime, AActor* Owner)
+{
+	// Timer += DeltaTime;
+	// const float CyclesPerSecond = 1.f;                     // 1 pulse per second
+	// const float Phase = Timer * CyclesPerSecond * 2.f * PI;
+	// const float Normalized = (FMath::Sin(Phase) + 1.f) * 0.5f;  // maps -1..1 → 0..1
+	// const float Result = m_Radius * Normalized;
+
+
+
+	if (m_UpdateRadius)
+	{
+		Timer += DeltaTime;
+		constexpr float PulseDuration = 0.6f; // seconds per sweep
+		const float T = FMath::Fmod(Timer, PulseDuration) / PulseDuration; // 0..1, snaps back at 1
+		m_ExplosionRadius = m_Radius * T; // == Lerp(0, m_Radius, T)
+	}
+	DRAW_CIRCLE(GetWorld(), Owner->GetActorLocation(), m_ExplosionRadius, FColor::Red, 3.f);
+}
+void USuicideState::Explode()
+{
+	if (m_ExplosionSound)
+	{
+		UGameplayStatics::PlaySoundAtLocation(
+			GetWorld(), m_ExplosionSound, LocationToExplode);
+	}
+	
+	
+	FTimerHandle KillPlayerTimer;
+	GetWorld()->GetTimerManager().SetTimer(
+				KillPlayerTimer,
+		this,
+		&USuicideState::KillPlayer,
+		0.4f,
+		false);
+	
+	// Boom SFX at the blast point — fire-and-forget, 3D-spatialized.
+	
+}
+
+void USuicideState::KillPlayer()
+{
+	UGameplayStatics::ApplyRadialDamage(
+		GetWorld(),
+		99999.f,                 // Damage
+		LocationToExplode,      // Origin
+		m_Radius,               // Radius
+		UDamageType::StaticClass(),
+		TArray<AActor*>(),      // Actors to ignore
+		nullptr,                // Damage causer
+		nullptr,
+		true// Full damage
+	);
+}
+
+void USuicideState::OnExit_Implementation(AActor * Owner)
+{
+	
+	
 }
 

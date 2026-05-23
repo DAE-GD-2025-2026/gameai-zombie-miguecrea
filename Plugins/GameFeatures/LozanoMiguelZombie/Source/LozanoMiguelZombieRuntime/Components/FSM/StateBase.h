@@ -180,11 +180,11 @@ protected:
 
 	// How long the back-facing yaw sweep lasts (seconds).
 	UPROPERTY(EditDefaultsOnly, Category="Loot")
-	float ScanDuration = 2.5f;
+	float ScanDuration = 2.f;
 
 	// Maximum yaw offset from the "facing-away" base rotation, in degrees.
 	UPROPERTY(EditDefaultsOnly, Category="Loot")
-	float ScanSweepHalfAngleDeg = 60.f;
+	float ScanSweepHalfAngleDeg = 80.f;
 
 	// Angular frequency of the sin sweep, in radians/second. With 3.14
 	// (≈π) the survivor completes one full L→R→L→ cycle per ScanDuration=2s.
@@ -193,7 +193,7 @@ protected:
 
 	// RInterpTo speed used during the AlignToItem / ScanAlign phases.
 	UPROPERTY(EditDefaultsOnly, Category="Loot")
-	float RotationInterpSpeed = 6.f;
+	float RotationInterpSpeed = 10.f;
 
 	// We consider the survivor "aligned" once yaw error is below this.
 	UPROPERTY(EditDefaultsOnly, Category="Loot")
@@ -222,10 +222,7 @@ private:
 	// True when actor yaw is within AlignToleranceDeg of Target's yaw.
 	bool IsAlignedTo(AActor* Owner, const FRotator& Target) const;
 	bool WillIGrabThisItem(class ABaseItem * Item);
-	
 	 void GrabItem(int32 Slot);
-
-	
 };
 
 
@@ -289,7 +286,7 @@ protected:
 
 	// RInterp speed for the face-target rotation. Higher = snappier.
 	UPROPERTY(EditDefaultsOnly, Category="Combat")
-	float FaceTargetSpeed = 12.f;
+	float FaceTargetSpeed = 22.f;
 
 private:
 	float m_ZigzagTimer = 0.f;
@@ -353,5 +350,43 @@ protected:
 	virtual void OnEnter_Implementation(AActor * Owner) override;
 	virtual void OnTick_Implementation(float DeltaTime, AActor * Owner) override;
 	virtual void OnExit_Implementation(AActor * Owner) override;
+};
+
+
+UCLASS()
+class LOZANOMIGUELZOMBIERUNTIME_API USuicideState : public UStateBase
+{
+	GENERATED_BODY()
+public:
+	USuicideState();
+protected:
+	virtual void OnInit() override;
+	virtual void OnEnter_Implementation(AActor * Owner) override;
+	virtual void OnTick_Implementation(float DeltaTime, AActor * Owner) override;
+	virtual void OnExit_Implementation(AActor * Owner) override;
+
+
+	FVector LocationToExplode{};
+	void Explode();
+	void KillPlayer();
+	float m_Radius = 300.f;
+	float m_ExplosionRadius = 0.f;
+
+	bool m_UpdateRadius = true;
+	
+	float Timer{};
+	// Loaded once in OnInit from the plugin Content folder. UPROPERTY so GC
+	// doesn't sweep the asset between Explode calls.
+	UPROPERTY()
+	TObjectPtr<class USoundBase> m_ExplosionSound = nullptr;
+
+	// Ticking bomb SFX — plays on OnEnter. If the asset is shorter than the
+	// 3-second countdown, it'll just stop early; the explosion sound takes
+	// over visually.
+	UPROPERTY()
+	TObjectPtr<class USoundBase> m_TickBombSound = nullptr;
+	
+	TWeakObjectPtr<USteeringComponent> SteeringComponent;
+	
 };
 

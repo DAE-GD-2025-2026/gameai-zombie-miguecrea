@@ -32,7 +32,6 @@ private:
 	
 	 
 	UAIPerceptionComponent * m_PerceptionComponent;
-
 	ASurvivorPawn * m_SurvivorPawn = nullptr;
 public:
 	
@@ -44,6 +43,9 @@ public:
 	float DeltaTime,
 	ELevelTick TickType,
 	FActorComponentTickFunction* ThisTickFunction) override;
+	
+	
+	float m_EnemyDetectionRadius = 190.f;
 
 	// --- Needs (low-stat) edge detection ----------------------------------
 	// These are continuous polls in Tick. We fire the delegate exactly once
@@ -107,14 +109,38 @@ public:
 	
 
 	TArray<ABaseZombie*> GetVisibleZombies ();
-	
+
 	class UBlackboardComponent * GetBlackboard() const;
 
 	void ForgetInterestPoints(const FInterestPoint& InterestPoint);
+
+	// --- Debug: zombie perception audit -----------------------------------
+	// Periodic scan of all ABaseZombie actors in the world. Any zombie that
+	// lacks an AIPerceptionStimuliSourceComponent (or has one but isn't
+	// registered for Sight) is logged — those zombies are invisible to the
+	// survivor's perception regardless of distance/FOV.
+
+	UPROPERTY(EditDefaultsOnly, Category="Debug")
+	float ZombieAuditInterval = 5.f;
+
+	float m_ZombieAuditTimer = 0.f;
+
+	void LogUnperceivedZombies() const;
+	
+	void Suicide();
+	
+	void AddZombiesToMemory();
 
 private:
 
 	class UHealthComponent    * m_Health    = nullptr;
 	class UStaminaComponent   * m_Stamina   = nullptr;
 	class UInventoryComponent * m_Inventory = nullptr;
+
+	// Event-driven mirror of "which zombies are currently visible". Updated
+	// from OnPerceptionUpdated (add on success, remove on failure) and
+	// OnTargetForgotten (remove). Weak ptrs so dead zombies prune themselves.
+	// GetCurrentlyPerceivedActors is too laggy to rely on per-tick — sight
+	// updates fire on the perception system's own clock, not ours.
+	TSet<TWeakObjectPtr<ABaseZombie>> m_VisibleZombies;
 };

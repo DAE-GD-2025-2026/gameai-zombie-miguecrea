@@ -25,6 +25,7 @@ namespace BBKeys
 	inline const FName bItem      (TEXT("bItem"));
 	inline const FName bThreatNearby  (TEXT("bThreatNearby"));
 	inline const FName bThreatGone    (TEXT("bThreatGone"));
+	inline const FName bShouldSuicide    (TEXT("bShouldSuicide"));
 	
 	
 	
