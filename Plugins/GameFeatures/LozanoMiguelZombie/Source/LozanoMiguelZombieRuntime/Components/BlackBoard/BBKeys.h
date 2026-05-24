@@ -2,13 +2,7 @@
 
 #include "CoreMinimal.h"
 
-// All blackboard key names live here. Reference these constants everywhere
-// instead of inline TEXT("...") literals. One typo, one definition.
-//
-// Add a new key:  add a line below, include this header where you need it.
-// Rename a key:   change the string here and the Find/Replace on the symbol
-//                 takes care of every callsite. No more silent string drift.
-//
+
 // `inline const` (C++17) means each key has exactly one definition across
 // the whole module even though this header is included many places.
 

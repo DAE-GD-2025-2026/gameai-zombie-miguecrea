@@ -75,20 +75,6 @@ void USteeringComponent::Move(const FVector & ToLocation)
 	{
 		UE_LOG(LogTemp, Error, TEXT("Move Failed -> Path object is NULL"));
 	}
-	else
-	{
-		// UE_LOG(LogTemp, Warning,
-		// 	TEXT("Path Points Count: %d"),
-		// 	TestPath->PathPoints.Num());
-		//
-		// UE_LOG(LogTemp, Warning,
-		// 	TEXT("Path Is Valid: %s"),
-		// 	TestPath->IsValid() ? TEXT("TRUE") : TEXT("FALSE"));
-		//
-		// UE_LOG(LogTemp, Warning,
-		// 	TEXT("Path Is Partial: %s"),
-		// 	TestPath->IsPartial() ? TEXT("TRUE") : TEXT("FALSE"));
-	}
 
 	// --------------------------------------------------------------------
 	// MOVEMENT COMPONENT CHECK
@@ -219,16 +205,11 @@ ASurvivorAIController * USteeringComponent::GetAI()
 	m_AIController = Cast<ASurvivorAIController>(m_PawnOwner->GetController());
 	if (!m_AIController) return nullptr;
 
-	// One-time controller config, run the moment the controller is first seen.
 	m_AIController->bSetControlRotationFromPawnOrientation = false;
 	m_AIController->ClearFocus(EAIFocusPriority::Gameplay); // remove combat override
 	m_AIController->ClearFocus(EAIFocusPriority::Default);  // remove baseline
 	m_AIController->ClearFocus(EAIFocusPriority::Move);     // remove move-driven
-
-	// Forward MoveTo completion events to our own delegate. AddUniqueDynamic
-	// guards against double-binding if GetAI() is ever called twice through
-	// some weird code path (it shouldn't, given the m_AIController early-out
-	// above, but cheap insurance).
+	
 	m_AIController->ReceiveMoveCompleted.AddUniqueDynamic(
 		this, &USteeringComponent::HandleAIMoveCompleted);
 
@@ -293,9 +274,7 @@ void USteeringComponent::ClearFocus()
 
 void USteeringComponent::StopMoving()
 {
-	// Cancel any active MoveTo so a state transition can immediately issue
-	// its own destination without inheriting the previous path. Safe to call
-	// even when no path is active.
+	
 	if (m_AIController)
 	{
 		m_AIController->StopMovement();

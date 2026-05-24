@@ -19,4 +19,5 @@ struct FInterestPoint
 	{
 		return Actor == Other.Actor;
 	}
+	
 };

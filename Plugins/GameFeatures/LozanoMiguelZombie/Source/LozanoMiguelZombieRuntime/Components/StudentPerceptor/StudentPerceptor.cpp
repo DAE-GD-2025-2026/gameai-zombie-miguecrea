@@ -24,8 +24,6 @@
 #include "Kismet/GameplayStatics.h"
 
 
-
-
 UStudentPerceptor::UStudentPerceptor()
 {
 	PrimaryComponentTick.bCanEverTick = true;
@@ -34,7 +32,7 @@ UStudentPerceptor::UStudentPerceptor()
 void UStudentPerceptor::BeginPlay()
 {
 	Super::BeginPlay();
-	if (UWorld * W = GetWorld())
+	if (UWorld* W = GetWorld())
 	{
 		W->GetTimerManager().SetTimerForNextTick(
 			FTimerDelegate::CreateUObject(this, &UStudentPerceptor::DeferredInit));
@@ -48,7 +46,6 @@ void UStudentPerceptor::BeginPlay()
 		0.1f,
 		true
 	);
-	
 }
 
 void UStudentPerceptor::DeferredInit()
@@ -56,14 +53,15 @@ void UStudentPerceptor::DeferredInit()
 	AActor* Owner = GetOwner();
 	if (!Owner) return;
 
-	m_Health              = Owner->FindComponentByClass<UHealthComponent>();
-	m_Stamina             = Owner->FindComponentByClass<UStaminaComponent>();
-	m_Inventory           = Owner->FindComponentByClass<UInventoryComponent>();
+	m_Health = Owner->FindComponentByClass<UHealthComponent>();
+	m_Stamina = Owner->FindComponentByClass<UStaminaComponent>();
+	m_Inventory = Owner->FindComponentByClass<UInventoryComponent>();
 	m_PerceptionComponent = Owner->FindComponentByClass<UAIPerceptionComponent>();
 
-	if (!m_Health)    UE_LOG(LogTemp, Error, TEXT("[Perceptor] HealthComponent not found."));
-	if (!m_Stamina)   UE_LOG(LogTemp, Error, TEXT("[Perceptor] StaminaComponent not found."));
-	if (!m_Inventory) UE_LOG(LogTemp, Warning, TEXT("[Perceptor] InventoryComponent not found — weapon-urgency disabled."));
+	if (!m_Health) UE_LOG(LogTemp, Error, TEXT("[Perceptor] HealthComponent not found."));
+	if (!m_Stamina) UE_LOG(LogTemp, Error, TEXT("[Perceptor] StaminaComponent not found."));
+	if (!m_Inventory) UE_LOG(LogTemp, Warning,
+	                         TEXT("[Perceptor] InventoryComponent not found — weapon-urgency disabled."));
 
 	if (m_PerceptionComponent)
 	{
@@ -79,11 +77,11 @@ void UStudentPerceptor::DeferredInit()
 }
 
 void UStudentPerceptor::TickComponent(float DeltaTime, ELevelTick TickType,
-                                      FActorComponentTickFunction * ThisTickFunction)
+                                      FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-	
-	
+
+
 	AddZombiesToMemory();
 
 	if (m_Stamina)
@@ -96,7 +94,7 @@ void UStudentPerceptor::TickComponent(float DeltaTime, ELevelTick TickType,
 		}
 		else if (m_bWasStaminaLow && S >= StaminaLowExit)
 		{
-			m_bWasStaminaLow = false;   // silent re-arm
+			m_bWasStaminaLow = false; // silent re-arm
 		}
 	}
 
@@ -114,10 +112,10 @@ void UStudentPerceptor::TickComponent(float DeltaTime, ELevelTick TickType,
 			m_bWasHealthLow = false;
 		}
 	}
-	
-	for (const FInterestPoint & InterestPoint : m_WannaPointsInBrain)
+
+	for (const FInterestPoint& InterestPoint : m_WannaPointsInBrain)
 	{
-		AActor * A = InterestPoint.Actor.Get();
+		AActor* A = InterestPoint.Actor.Get();
 		if (A && CurrentColor)
 		{
 			if (!InterestPoint.m_Visited)
@@ -130,25 +128,14 @@ void UStudentPerceptor::TickComponent(float DeltaTime, ELevelTick TickType,
 			}
 		}
 	}
-
-	for (const FInterestPoint& InterestPoint : m_SaveForLaterPoints)
-	{
-		AActor* A = InterestPoint.Actor.Get();
-		if (A)
-		{
-			DRAW_CIRCLE(GetWorld(), A->GetActorLocation(), 30.f, FColor::Turquoise, 3.f);
-		}
-	}
-	
 }
 
-void UStudentPerceptor::OnPerceptionUpdated(AActor * Actor, FAIStimulus Stimulus)
+void UStudentPerceptor::OnPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus)
 {
-	
 	if (Stimulus.Type != UAISense::GetSenseID<UAISense_Sight>())
 		return;
 	const bool bSensed = Stimulus.WasSuccessfullySensed();
-	
+
 	if (!bSensed) return;
 
 	if (Cast<AHouse>(Actor) || Cast<ABaseItem>(Actor))
@@ -157,35 +144,35 @@ void UStudentPerceptor::OnPerceptionUpdated(AActor * Actor, FAIStimulus Stimulus
 		if (Item && Item->GetItemType() == EItemType::Garbage) return;
 
 		FInterestPoint InterestPoint;
-		InterestPoint.Actor    = Actor;
+		InterestPoint.Actor = Actor;
 		InterestPoint.m_Visited = false;
 		m_WannaPointsInBrain.AddUnique(InterestPoint);
 	}
 }
 
-void UStudentPerceptor::OnTargetForgotten(AActor * Actor)
+void UStudentPerceptor::OnTargetForgotten(AActor* Actor)
 {
 	// when Stimuli expired age is 5 seconds will forget after 5 seconds 
-	UE_LOG(LogTemp,Error,TEXT("Target Forgotten"))
-	if (ABaseZombie * Z = Cast<ABaseZombie>(Actor))
+	UE_LOG(LogTemp, Error, TEXT("Target Forgotten"))
+	if (ABaseZombie* Z = Cast<ABaseZombie>(Actor))
 	{
 		m_VisibleZombies.Remove(Z);
 	}
 }
 
 
-FInterestPoint * UStudentPerceptor::GetBestInterestPoint()
+FInterestPoint* UStudentPerceptor::GetBestInterestPoint()
 {
-	FInterestPoint * BestInterestPoint = nullptr;
-	
+	FInterestPoint* BestInterestPoint = nullptr;
+
 	if (m_WannaPointsInBrain.IsEmpty())
 		return nullptr;
 
-	AActor * OwnerActor = GetOwner();
+	AActor* OwnerActor = GetOwner();
 	const FVector MyLoc = OwnerActor ? OwnerActor->GetActorLocation() : FVector::ZeroVector;
 
 	float BestScore = 0.f;
-	for (FInterestPoint & InterestPoint : m_WannaPointsInBrain)
+	for (FInterestPoint& InterestPoint : m_WannaPointsInBrain)
 	{
 		if (InterestPoint.m_Visited)
 			continue;
@@ -199,9 +186,8 @@ FInterestPoint * UStudentPerceptor::GetBestInterestPoint()
 		if (Cast<AHouse>(Target))
 		{
 			Score = GetHouseBaseUtility();
-			 
 		}
-		else if (ABaseItem * Item = Cast<ABaseItem>(Target))
+		else if (ABaseItem* Item = Cast<ABaseItem>(Target))
 		{
 			const EItemType ItemType = Item->GetItemType();
 			Score = GetItemBaseUtility(ItemType);
@@ -225,6 +211,47 @@ FInterestPoint * UStudentPerceptor::GetBestInterestPoint()
 }
 
 
+FInterestPoint* UStudentPerceptor::GetClosestWeaponInMemory()
+{
+	// Scan m_WannaPointsInBrain for the closest unvisited weapon (Pistol or
+	// Shotgun). Returns nullptr if memory holds no weapons or none are
+	// currently valid.
+	if (m_WannaPointsInBrain.IsEmpty()) return nullptr;
+
+	AActor* OwnerActor = GetOwner();
+	const FVector MyLoc =
+		OwnerActor ? OwnerActor->GetActorLocation() : FVector::ZeroVector;
+
+	FInterestPoint* Closest = nullptr;
+	float ClosestDistSq     = TNumericLimits<float>::Max();
+
+	for (FInterestPoint& IP : m_WannaPointsInBrain)
+	{
+		if (IP.m_Visited) continue;
+
+		AActor* Target = IP.Actor.Get();
+		if (!Target) continue;                       // weak ptr expired
+
+		const ABaseItem* Item = Cast<ABaseItem>(Target);
+		if (!Item) continue;                         // house / not an item
+
+		const EItemType T = Item->GetItemType();
+		if (T != EItemType::Pistol && T != EItemType::Shotgun)
+			continue;                                // not a weapon
+
+		// Squared distance — avoids a sqrt per candidate.
+		const float DistSq = FVector::DistSquared(MyLoc, Target->GetActorLocation());
+		if (DistSq < ClosestDistSq)
+		{
+			ClosestDistSq = DistSq;
+			Closest = &IP;
+		}
+	}
+
+	return Closest;
+}
+
+
 float UStudentPerceptor::GetItemBaseUtility(EItemType type)
 {
 	switch (type)
@@ -239,10 +266,6 @@ float UStudentPerceptor::GetItemBaseUtility(EItemType type)
 
 float UStudentPerceptor::GetHouseBaseUtility()
 {
-	// Lower than the Medkit base (10) so a visible item at comparable
-	// distance always wins. Houses are still picked when no item is in
-	// memory or when an item is significantly further away — the distance
-	// falloff in GetBestInterestPoint does the rest.
 	return 5.f;
 }
 
@@ -256,9 +279,6 @@ float UStudentPerceptor::ApplyContextModifier(float base, const EItemType& ItemT
 
 	float score = base;
 
-	// --- Emergency multipliers (3× when the corresponding stat is critical).
-	// Threshold of 3 on a 0-10 scale = "below 30%". The non-linear cliff is
-	// intentional for now: states need a clear signal to switch behavior.
 	if (ItemType == EItemType::Medkit && m_Health->GetHealth() < 3)
 	{
 		score *= 3.f;
@@ -267,11 +287,9 @@ float UStudentPerceptor::ApplyContextModifier(float base, const EItemType& ItemT
 	{
 		score *= 3.f;
 	}
-	// --- Weapon urgency: a survivor with NO weapon should grab the first
-	// one they see, even over a house. 4× on a base of 6 = 24, which beats
-	// the baseline House score of 20.
+
 	else if ((ItemType == EItemType::Pistol || ItemType == EItemType::Shotgun)
-	         && !SurvivorHasWeapon())
+		&& !SurvivorHasWeapon())
 	{
 		score *= 4.f;
 	}
@@ -317,7 +335,7 @@ TArray<ABaseZombie*> UStudentPerceptor::GetVisibleZombies()
 
 	for (auto It = m_VisibleZombies.CreateIterator(); It; ++It)
 	{
-		if (ABaseZombie * Z = (*It).Get())
+		if (ABaseZombie* Z = (*It).Get())
 		{
 			Result.Add(Z);
 		}
@@ -334,11 +352,11 @@ void UStudentPerceptor::ForgetInterestPoints(const FInterestPoint& InterestPoint
 	m_WannaPointsInBrain.Remove(InterestPoint);
 }
 
-UBlackboardComponent * UStudentPerceptor::GetBlackboard() const
+UBlackboardComponent* UStudentPerceptor::GetBlackboard() const
 {
-	APawn * Pawn = Cast<APawn>(GetOwner());
+	APawn* Pawn = Cast<APawn>(GetOwner());
 	if (!Pawn) return nullptr;
-	AAIController * AI = Cast<AAIController>(Pawn->GetController());
+	AAIController* AI = Cast<AAIController>(Pawn->GetController());
 	return AI ? AI->GetBlackboardComponent() : nullptr;
 }
 
@@ -348,22 +366,15 @@ void UStudentPerceptor::LogUnperceivedZombies() const
 	if (!W) return;
 
 	int32 TotalZombies = 0;
-	int32 BadZombies   = 0;
+	int32 BadZombies = 0;
 
-	// Iterate every ABaseZombie in the world. TActorIterator is the
-	// canonical way; UGameplayStatics::GetAllActorsOfClass also works but
-	// allocates an array we don't need.
+
 	for (TActorIterator<ABaseZombie> It(W); It; ++It)
 	{
 		ABaseZombie* Z = *It;
 		if (!IsValid(Z)) continue;
 		++TotalZombies;
 
-		// Look for a stimuli source component. This is the standard way
-		// to make an actor visible to AI perception. Manual registration
-		// via UAIPerceptionSystem::RegisterPerceptionStimuliSource also
-		// works but is rarer — if you use that elsewhere, this audit will
-		// false-positive that zombie.
 		UAIPerceptionStimuliSourceComponent* Source =
 			Z->FindComponentByClass<UAIPerceptionStimuliSourceComponent>();
 
@@ -371,15 +382,13 @@ void UStudentPerceptor::LogUnperceivedZombies() const
 		{
 			++BadZombies;
 			UE_LOG(LogTemp, Error,
-				TEXT("[Audit] %s has NO AIPerceptionStimuliSourceComponent — "
-				     "survivor cannot see this zombie."),
-				*Z->GetName());
+			       TEXT("[Audit] %s has NO AIPerceptionStimuliSourceComponent — "
+				       "survivor cannot see this zombie."),
+			       *Z->GetName());
 			continue;
 		}
 
-		// bAutoRegister and RegisterAsSourceForSenses are protected members
-		// (BlueprintReadOnly but not C++-public), so we can't read them
-		// directly. Use reflection to peek at the protected UPROPERTYs.
+
 		const UClass* SourceClass = Source->GetClass();
 
 		// --- bAutoRegister (uint32 bitfield) -----------------------------
@@ -390,20 +399,19 @@ void UStudentPerceptor::LogUnperceivedZombies() const
 			{
 				++BadZombies;
 				UE_LOG(LogTemp, Error,
-					TEXT("[Audit] %s: bAutoRegister=false. "
-					     "Tick 'Auto Register as Source' in the editor."),
-					*Z->GetName());
+				       TEXT("[Audit] %s: bAutoRegister=false. "
+					       "Tick 'Auto Register as Source' in the editor."),
+				       *Z->GetName());
 				continue;
 			}
 		}
 
-		// --- RegisterAsSourceForSenses (TArray<TSubclassOf<UAISense>>) ---
 		bool bRegistersSight = false;
 		if (const FArrayProperty* ArrProp =
 			FindFProperty<FArrayProperty>(SourceClass, TEXT("RegisterAsSourceForSenses")))
 		{
 			FScriptArrayHelper Helper(ArrProp,
-				ArrProp->ContainerPtrToValuePtr<void>(Source));
+			                          ArrProp->ContainerPtrToValuePtr<void>(Source));
 			for (int32 i = 0; i < Helper.Num(); ++i)
 			{
 				const UClass* SenseClass =
@@ -420,9 +428,9 @@ void UStudentPerceptor::LogUnperceivedZombies() const
 		{
 			++BadZombies;
 			UE_LOG(LogTemp, Error,
-				TEXT("[Audit] %s registers as a source, but NOT for AISense_Sight. "
-				     "Add AISense_Sight to 'Register as Source for Senses'."),
-				*Z->GetName());
+			       TEXT("[Audit] %s registers as a source, but NOT for AISense_Sight. "
+				       "Add AISense_Sight to 'Register as Source for Senses'."),
+			       *Z->GetName());
 			continue;
 		}
 	}
@@ -430,14 +438,14 @@ void UStudentPerceptor::LogUnperceivedZombies() const
 	if (BadZombies == 0)
 	{
 		UE_LOG(LogTemp, Warning,
-			TEXT("[Audit] All %d ABaseZombie actors are properly registered for Sight."),
-			TotalZombies);
+		       TEXT("[Audit] All %d ABaseZombie actors are properly registered for Sight."),
+		       TotalZombies);
 	}
 	else
 	{
 		UE_LOG(LogTemp, Warning,
-			TEXT("[Audit] Zombie audit: %d total, %d NOT perceivable for Sight."),
-			TotalZombies, BadZombies);
+		       TEXT("[Audit] Zombie audit: %d total, %d NOT perceivable for Sight."),
+		       TotalZombies, BadZombies);
 	}
 }
 
@@ -445,23 +453,14 @@ void UStudentPerceptor::Suicide()
 {
 	if (UBlackboardComponent* BB = GetBlackboard())
 	{
-		UE_LOG(LogTemp,Warning,TEXT("Suiciding"))
-		BB->SetValueAsBool(BBKeys::bShouldSuicide,true);
+		UE_LOG(LogTemp, Warning, TEXT("Suiciding"))
+		BB->SetValueAsBool(BBKeys::bShouldSuicide, true);
 	}
-	
 }
 
 void UStudentPerceptor::AddZombiesToMemory()
 {
-	// Perception fallback: when AIPerception's sight sense misses a nearby
-	// zombie (one-frame occlusion, edge-of-cone flutter, slow update tick),
-	// manually scan all ABaseZombie actors in the world and add anything
-	// within DetectionRadius to the visible set. No occlusion check —
-	// strictly Euclidean distance. Think "they're close enough that the
-	// survivor would hear/feel them even without a clean line of sight."
-
-
-	UWorld * W = GetWorld();
+	UWorld* W = GetWorld();
 	if (!W) return;
 	AActor* OwnerActor = GetOwner();
 	if (!OwnerActor) return;
@@ -506,50 +505,4 @@ void UStudentPerceptor::AddZombiesToMemory()
 			m_VisibleZombies.Remove(Z);
 		}
 	}
-	
-	
-	
-//	UE_LOG(LogTemp,Warning,TEXT(" Zombies in range %b"),bAnyZombieInRange)
-	
-	
-	// if (!bAnyZombieInRange) return;
-	// UBlackboardComponent * BB = GetBlackboard();
-	// if (!BB) return;
-	// bool ShouldSuicide = BB->GetValueAsBool(BBKeys::bShouldSuicide);
-	// if (ShouldSuicide) return;
-	// BB->SetValueAsBool(BBKeys::bThreatNearby, true);
-
-	
 }
-
-// TArray<AActor*> UStudentPerceptor::GetSeenActorsInMemory()
-// {
-// 	TArray<AActor*> Actors;
-// 	if (!m_PerceptionComponent) return Actors;
-// 	m_PerceptionComponent->GetKnownPerceivedActors(
-// 		UAISense_Sight::StaticClass(),
-// 		Actors
-// 	);
-// 	return Actors;
-// }
-//
-// void UStudentPerceptor::ForgetActorsFromMemory(AActor* Actor)
-// {
-// 	if (!m_PerceptionComponent) return;
-// 	m_PerceptionComponent->ForgetActor(Actor);
-// }
-
-//FAIStimulus Stimulus
-// Perception->ForgetAll();
-//Perception->RequestStimuliListenerUpdate();
-// const FActorPerceptionInfo* Info = Perception->GetActorInfo(*Actor);
-// Perception->HasAnyActiveStimulus(*Actor)
-// Perception->GetDominantSense()
-// Perception->SetSenseEnabled(UAISense_Sight::StaticClass(),false);
-// FActorPerceptionBlueprintInfo Info;
-
-//Stimulus.Type             // FAISenseID — which sense fired (Sight, Hearing, Damage, Touch, Team, Prediction)//Stimulus.StimulusLocation // FVector — world location of the stimulus (where the noise was, where the actor was seen)//Stimulus.ReceiverLocation // FVector — where the perceiver was when it sensed it
-//Stimulus.Strength         // float — sense-specific intensity (loudness, damage amount, etc.)
-//Stimulus.Age              // float — seconds since this stimulus was registered
-//Stimulus.ExpirationAge    // float — when the stimulus will be discarded
-//Stimulus.Tag              // FName — optional sense-specific tag (e.g., hearing event tag)

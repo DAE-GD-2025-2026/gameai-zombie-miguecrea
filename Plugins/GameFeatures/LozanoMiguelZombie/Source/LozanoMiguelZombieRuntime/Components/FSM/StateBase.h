@@ -102,10 +102,10 @@ protected:
 	FVector WorldCenter = FVector::ZeroVector;
 
 	UPROPERTY(EditDefaultsOnly, Category="Wander")
-	int32 MaxRings = 10;
+	int32 MaxRings = 6;
 
 	UPROPERTY(EditDefaultsOnly, Category="Wander")
-	float RadiusStep = 800.f;
+	float RadiusStep = 1100.f;
 
 	UPROPERTY(EditDefaultsOnly, Category="Wander")
 	float ArrivalDistance = 150.f;
@@ -164,6 +164,7 @@ protected:
 
 	TWeakObjectPtr<USteeringComponent>        Steering;
 	TWeakObjectPtr<class UInventoryComponent> Inventory;
+	TWeakObjectPtr<class UStudentPerceptor> Memory;
 
 	virtual void OnInit() override;
 	virtual void OnEnter_Implementation(AActor * Owner) override;
@@ -239,6 +240,11 @@ protected:
 	TWeakObjectPtr<UStudentPerceptor>           Memory;
 	TWeakObjectPtr<class UInventoryComponent>   Inventory;
 
+	// Weak ref to the actual weapon actor that Memory thinks is closest.
+	// TWeakObjectPtr works because ABaseItem is a UObject; FInterestPoint
+	// is a USTRUCT and can't be tracked weakly. IsValid() catches both
+	// "never set" and "the item got destroyed mid-chase."
+	TWeakObjectPtr<class ABaseItem> m_ClosestWeaponInMemory;
 	virtual void OnInit() override;
 	virtual void OnEnter_Implementation(AActor* Owner) override;
 	virtual void OnTick_Implementation(float DeltaTime, AActor* Owner) override;
@@ -262,79 +268,40 @@ protected:
 	
 	void GoBackToWander();
 	
+	bool m_OnDangerSearchingOldWeapon = false;
 	
-	
-
-	// --- Tuning -----------------------------------------------------------
-
-	// How often the zigzag side flips, which is also when we re-issue the
-	// retreat MoveTo. Lower = more frantic, higher = lazier.
-	UPROPERTY(EditDefaultsOnly, Category="Combat")
-	float ZigzagFlipInterval = 0.6f;
-
-	// How far back to retreat per flip (Unreal units).
-	UPROPERTY(EditDefaultsOnly, Category="Combat")
-	float RetreatDistance = 800.f;
-
-	// Lateral offset of the zigzag (Unreal units).
-	UPROPERTY(EditDefaultsOnly, Category="Combat")
-	float ZigzagAmount = 400.f;
-
 	// Seconds between weapon uses.
 	UPROPERTY(EditDefaultsOnly, Category="Combat")
 	float FireCooldown = 1.0f;
 
 	// RInterp speed for the face-target rotation. Higher = snappier.
 	UPROPERTY(EditDefaultsOnly, Category="Combat")
-	float FaceTargetSpeed = 22.f;
+	float FaceTargetSpeed = 40.f;
 
 private:
-	float m_ZigzagTimer = 0.f;
 	float m_FireTimer   = 0.f;
-	int32 m_ZigzagSide  = 1; // +1 / -1
 
 	TWeakObjectPtr<class ABaseZombie> m_CurrentTarget;
 
-	// Closest of the visible zombies. Returns nullptr if list is empty.
 	class ABaseZombie* PickClosestZombie(
 		const TArray<class ABaseZombie*>& Zombies, AActor* Owner) const;
 
-	// Inventory slot containing a weapon, preferring Shotgun. -1 if none.
 	TArray<int32>FindWeaponSlots() const;
 
-	// Smooth manual yaw rotation toward Threat. Pitch/roll forced to zero.
 	bool FaceTarget(float Dt, AActor* Owner, AActor* Threat) const;
-
-	// Recompute (away-from-threat + lateral) destination and re-issue Move.
-	void IssueRetreatMove(AActor* Owner, AActor* Threat);
-
-	// Mirrors AWeapon::Shoot's line trace from the plugin side so we can
-	// actually see the trace. Persists 1 second. Doesn't damage anything —
-	// the host's UseItem still does the real shoot/damage.
 	void DrawWeaponTrace(AActor* Owner, class ABaseItem* WeaponItem) const;
-
-	// Picks the sound matching the weapon type and plays it at the survivor's
-	// location. No-op if the weapon isn't a Pistol/Shotgun or the sound
-	// failed to load.
 	void PlayWeaponSound(AActor* Owner, class ABaseItem* WeaponItem) const;
-
-	// Loaded once in OnInit from the plugin Content folder. UPROPERTY so the
-	// GC doesn't sweep them between firings.
+	
 	UPROPERTY()
 	TObjectPtr<class USoundBase> m_PistolSound  = nullptr;
 
 	UPROPERTY()
 	TObjectPtr<class USoundBase> m_ShotgunSound = nullptr;
-
-	// One-shot scream when the survivor first enters Combat. The 5-second
-	// safe-timer (m_TimeUntilItIsSafe) keeps Combat from re-entering rapidly,
-	// so this won't spam.
+	
 	UPROPERTY()
 	TObjectPtr<class USoundBase> m_PanicSound = nullptr;
 
-	// Dry-fire click for when the selected weapon has 0 ammo. The host's
-	// UseItem silently early-returns at zero, so we detect the empty
-	// magazine on the plugin side and play this instead of the gun shot.
+
 	UPROPERTY()
 	TObjectPtr<class USoundBase> m_EmptyGunSound = nullptr;
 };

@@ -45,15 +45,10 @@ public:
 	FActorComponentTickFunction* ThisTickFunction) override;
 	
 	
-	float m_EnemyDetectionRadius = 190.f;
-
-	// --- Needs (low-stat) edge detection ----------------------------------
-	// These are continuous polls in Tick. We fire the delegate exactly once
-	// on the falling edge (value crosses below the *Enter threshold).
-	// The flag mirrors physical state ("am I currently low?") and re-arms
-	// automatically when value climbs above the *Exit threshold — the gap
-	// between Enter and Exit is hysteresis to prevent flapping.
-
+	
+	
+	float m_EnemyDetectionRadius = 250.f;
+	
 	UPROPERTY(EditDefaultsOnly, Category="Needs")
 	float StaminaLowEnter = 5.f;
 	UPROPERTY(EditDefaultsOnly, Category="Needs")
@@ -77,7 +72,13 @@ public:
 	void DeferredInit();
 	
 	FInterestPoint * GetBestInterestPoint();
-	
+
+	// Returns the closest unvisited Pistol/Shotgun in memory, or nullptr if
+	// none. "Closest" is straight-line distance from the owner's location —
+	// no navmesh cost. Use when the survivor needs to know where the
+	// nearest weapon is regardless of utility ordering.
+	FInterestPoint * GetClosestWeaponInMemory();
+
 	float GetItemBaseUtility(EItemType type);
 	float GetHouseBaseUtility();
 	float ApplyContextModifier(float base,const EItemType & ItemType);
@@ -101,12 +102,6 @@ public:
 	
 	// I want to grab these Now 
 	TArray<FInterestPoint> m_WannaPointsInBrain;
-	//wont need now but later might come back
-	TArray<FInterestPoint> m_SaveForLaterPoints;
-	
-	TSet<AActor*> m_IgnoredActors; // Actors that I want to not put on memory 
-	//those you grabbed 
-	
 
 	TArray<ABaseZombie*> GetVisibleZombies ();
 

@@ -26,13 +26,13 @@ namespace LootSlots
 	constexpr int32 WeaponMin = 0;
 	constexpr int32 WeaponMax = 1;
 	// Food — homogeneous, never swap.
-	
-	constexpr int32 FoodMin   = 2;
-	constexpr int32 FoodMax   = 3;
-	// Medkit — single slot, homogeneous.
-	constexpr int32 Medkit    = 4;
 
-	constexpr int32 Total     = 5;
+	constexpr int32 FoodMin = 2;
+	constexpr int32 FoodMax = 3;
+	// Medkit — single slot, homogeneous.
+	constexpr int32 Medkit = 4;
+
+	constexpr int32 Total = 5;
 
 	// Returns inclusive [Min, Max] range or [-1, -1] for "no slot".
 	static void RangeFor(EItemType T, int32& OutMin, int32& OutMax)
@@ -40,10 +40,18 @@ namespace LootSlots
 		switch (T)
 		{
 		case EItemType::Pistol:
-		case EItemType::Shotgun: OutMin = WeaponMin; OutMax = WeaponMax; return;
-		case EItemType::Food:    OutMin = FoodMin;   OutMax = FoodMax;   return;
-		case EItemType::Medkit:  OutMin = Medkit;    OutMax = Medkit;    return;
-		default:                 OutMin = -1;        OutMax = -1;        return;
+		case EItemType::Shotgun: OutMin = WeaponMin;
+			OutMax = WeaponMax;
+			return;
+		case EItemType::Food: OutMin = FoodMin;
+			OutMax = FoodMax;
+			return;
+		case EItemType::Medkit: OutMin = Medkit;
+			OutMax = Medkit;
+			return;
+		default: OutMin = -1;
+			OutMax = -1;
+			return;
 		}
 	}
 
@@ -54,8 +62,8 @@ namespace LootSlots
 		switch (T)
 		{
 		case EItemType::Shotgun: return 10.f;
-		case EItemType::Pistol:  return 6.f;
-		default:                 return 0.f;
+		case EItemType::Pistol: return 6.f;
+		default: return 0.f;
 		}
 	}
 }
@@ -70,7 +78,7 @@ UStateBase::UStateBase()
 	m_StateName = GetClass()->GetFName();
 }
 
-AActor * UStateBase::GetOwnerActor() const
+AActor* UStateBase::GetOwnerActor() const
 {
 	return FSM.IsValid() ? FSM->GetOwner() : nullptr;
 }
@@ -88,28 +96,27 @@ UWanderState::UWanderState()
 
 void UWanderState::OnInit()
 {
-	
 	// I COUld have Components that are needed in multiple States IN FSM 
 	//otherwise theywill be local to state in case only that State uses it
-	Memory   = GetSibling<UStudentPerceptor>();
+	Memory = GetSibling<UStudentPerceptor>();
 	Steering = GetSibling<USteeringComponent>();
 	BuildPatrolGrid();
 }
 
-void UWanderState::OnEnter_Implementation(AActor * Owner)
+void UWanderState::OnEnter_Implementation(AActor* Owner)
 {
-	UE_LOG(LogTemp,Warning,TEXT(" Wander State Entered"))
+	UE_LOG(LogTemp, Warning, TEXT(" Wander State Entered"))
 
 	// Consume any transition signals that brought us here. bThreatGone was
 	// the one-shot pulse from Combat's safe-timer; clear it so it doesn't
 	// keep re-firing. bThreatNearby is re-armed — the perceptor's tick poll
 	// will immediately set it back to true if a zombie is genuinely visible.
 	// bLootDone is consumed similarly.
-	
-	
-	FSM->Blackboard->SetValueAsBool(BBKeys::bThreatGone,   false);
+
+
+	FSM->Blackboard->SetValueAsBool(BBKeys::bThreatGone, false);
 	FSM->Blackboard->SetValueAsBool(BBKeys::bThreatNearby, false);
-	FSM->Blackboard->SetValueAsBool(BBKeys::bLootDone,     false);
+	FSM->Blackboard->SetValueAsBool(BBKeys::bLootDone, false);
 
 	Steering->SetRotate(true);
 	Steering->OnMoveCompleted.AddDynamic(this, &UWanderState::HandleArrived);
@@ -138,24 +145,23 @@ void UWanderState::VisualizeWanderPoints()
 	}
 }
 
-void UWanderState::OnTick_Implementation(float DeltaTime, AActor * Owner)
+void UWanderState::OnTick_Implementation(float DeltaTime, AActor* Owner)
 {
 	if (!Owner) return;
 
 	VisualizeWanderPoints();
-	
+
 	// // Periodic re-evaluation: even mid-walk, change our mind if a better
 	// // memory target appeared (e.g., a perceived item).
-	 RepickTimer += DeltaTime;
+	RepickTimer += DeltaTime;
 	if (RepickTimer >= ChangeMindTime) //1 Second for now 
 	{
 		RepickTimer = 0;
 		PickNewTarget(Owner);
 	}
-
 }
 
-void UWanderState::OnExit_Implementation(AActor * Owner)
+void UWanderState::OnExit_Implementation(AActor* Owner)
 {
 	m_GoingToPatrolPoint = false;
 	Steering->SetRotate(false);
@@ -165,8 +171,6 @@ void UWanderState::OnExit_Implementation(AActor * Owner)
 
 void UWanderState::HandleArrived(EPathFollowingResult::Type WhatHappened)
 {
-	
-	
 	switch (WhatHappened)
 	{
 	case EPathFollowingResult::Success:
@@ -174,11 +178,11 @@ void UWanderState::HandleArrived(EPathFollowingResult::Type WhatHappened)
 		break;
 
 	case EPathFollowingResult::Blocked:
-		UE_LOG(LogTemp,Error, TEXT("Move Blocked"));
+		UE_LOG(LogTemp, Error, TEXT("Move Blocked"));
 		break;
 
 	case EPathFollowingResult::OffPath:
-		UE_LOG(LogTemp,Error, TEXT("Move OffPath"));
+		UE_LOG(LogTemp, Error, TEXT("Move OffPath"));
 		break;
 
 	case EPathFollowingResult::Aborted:
@@ -195,19 +199,19 @@ void UWanderState::HandleArrived(EPathFollowingResult::Type WhatHappened)
 	}
 
 	if (WhatHappened != EPathFollowingResult::Type::Success) return;
-	
+
 	switch (m_ReasonToMove)
 	{
 	case EReasonToMove::Loot:
-		
-		UE_LOG(LogTemp,Warning,TEXT(" Arrived to Loot "));
-		
-		FSM->Blackboard.Get()->SetValueAsBool(BBKeys::bArrivedAtInterestPoint,true);
+
+		UE_LOG(LogTemp, Warning, TEXT(" Arrived to Loot "));
+
+		FSM->Blackboard.Get()->SetValueAsBool(BBKeys::bArrivedAtInterestPoint, true);
 		if (m_BestInterest)
 		{
-			FSM->Blackboard.Get()->SetValueAsObject(BBKeys::bItem,m_BestInterest->Actor.Get());
+			FSM->Blackboard.Get()->SetValueAsObject(BBKeys::bItem, m_BestInterest->Actor.Get());
 		}
-		
+
 		break;
 	case EReasonToMove::Explore:
 
@@ -220,15 +224,15 @@ void UWanderState::HandleArrived(EPathFollowingResult::Type WhatHappened)
 		AdvancePatrol();
 		m_GoingToPatrolPoint = false;
 		break;
-		
+
 	case EReasonToMove::VisitHouse:
-		UE_LOG(LogTemp,Warning,TEXT("Arrived To House "));
+		UE_LOG(LogTemp, Warning, TEXT("Arrived To House "));
 		break;
 	default:
 		break;
 	}
-	
-	
+
+
 	if (m_BestInterest)
 	{
 		m_BestInterest->m_Visited = true;
@@ -238,7 +242,7 @@ void UWanderState::HandleArrived(EPathFollowingResult::Type WhatHappened)
 
 // ---- Target picking ---------------------------------------------------------
 
- void UWanderState::GoToPatrolPoint()
+void UWanderState::GoToPatrolPoint()
 {
 	if (PatrolPoints.IsValidIndex(CurrentPatrolIdx))
 	{
@@ -253,16 +257,15 @@ void UWanderState::HandleArrived(EPathFollowingResult::Type WhatHappened)
 			UE_LOG(LogTemp, Error, TEXT("[Wander] Steering ref is null — cannot Move."));
 		}
 	}
-	
 }
 
-void UWanderState::PickNewTarget(AActor * Owner)
+void UWanderState::PickNewTarget(AActor* Owner)
 {
 	if (!Owner) return;
 	if (!Memory.Get()) return;
-	
+
 	//No Interest Point or all visited 
-	
+
 	m_BestInterest = Memory->GetBestInterestPoint();
 	if (m_BestInterest)
 	{
@@ -280,12 +283,9 @@ void UWanderState::PickNewTarget(AActor * Owner)
 	}
 	else
 	{
-		if (!m_GoingToPatrolPoint) GoToPatrolPoint();  
-		 	m_GoingToPatrolPoint = true;
+		if (!m_GoingToPatrolPoint) GoToPatrolPoint();
+		m_GoingToPatrolPoint = true;
 	}
-	
-
-	
 }
 
 void UWanderState::AdvancePatrol()
@@ -300,7 +300,7 @@ void UWanderState::AdvancePatrol()
 		Algo::Reverse(PatrolPoints);
 		for (FPatrolPoint& P : PatrolPoints) P.bVisited = false;
 		CurrentPatrolIdx = 0;
-		bPatrolReversed  = !bPatrolReversed;
+		bPatrolReversed = !bPatrolReversed;
 	}
 	else
 	{
@@ -308,22 +308,23 @@ void UWanderState::AdvancePatrol()
 	}
 }
 
-void UWanderState::WriteDestinationToBlackboard(const FVector & Destination) const
+void UWanderState::WriteDestinationToBlackboard(const FVector& Destination) const
 {
 	if (!FSM.IsValid()) return;
 
-	APawn * Pawn = Cast<APawn>(FSM->GetOwner());
-	AAIController * AI = Pawn ? Cast<AAIController>(Pawn->GetController()) : nullptr;
-	UBlackboardComponent * BB = AI ? AI->GetBlackboardComponent() : nullptr;
+	APawn* Pawn = Cast<APawn>(FSM->GetOwner());
+	AAIController* AI = Pawn ? Cast<AAIController>(Pawn->GetController()) : nullptr;
+	UBlackboardComponent* BB = AI ? AI->GetBlackboardComponent() : nullptr;
 	if (BB && !DestinationKey.IsNone())
 	{
 		BB->SetValueAsVector(DestinationKey, Destination);
 	}
 	else
 	{
-		UE_LOG(LogTemp,Error, TEXT("DestinationKey is not set"));
+		UE_LOG(LogTemp, Error, TEXT("DestinationKey is not set"));
 	}
 }
+
 void UWanderState::BuildPatrolGrid()
 {
 	PatrolPoints.Reset();
@@ -333,8 +334,8 @@ void UWanderState::BuildPatrolGrid()
 
 	for (int32 Ring = 1; Ring <= MaxRings; ++Ring)
 	{
-		const float Step    = 360.f / PointsThisRing;
-		const float Radius  = RadiusStep * Ring;
+		const float Step = 360.f / PointsThisRing;
+		const float Radius = RadiusStep * Ring;
 
 		for (int32 i = 0; i < PointsThisRing; ++i)
 		{
@@ -353,7 +354,7 @@ void UWanderState::BuildPatrolGrid()
 	}
 
 	CurrentPatrolIdx = 0;
-	bPatrolReversed  = false;
+	bPatrolReversed = false;
 }
 
 // ============================================================================
@@ -368,19 +369,20 @@ ULootState::ULootState()
 
 void ULootState::OnInit()
 {
-	Steering  = GetSibling<USteeringComponent>();
+	Steering = GetSibling<USteeringComponent>();
 	Inventory = GetSibling<UInventoryComponent>();
+	Memory = GetSibling<UStudentPerceptor>();
 
-	
-	static const TCHAR * LootSoundPath =
+
+	static const TCHAR* LootSoundPath =
 		TEXT("/LozanoMiguelZombie/Sounds/freesound_community-item-equip-6904.freesound_community-item-equip-6904");
 
 	m_LootSound = LoadObject<USoundBase>(nullptr, LootSoundPath);
 	if (!m_LootSound)
 	{
 		UE_LOG(LogTemp, Error,
-			TEXT("[Loot] Failed to load loot sound at '%s'. Check the plugin "
-			     "mount point and the asset's name."), LootSoundPath);
+		       TEXT("[Loot] Failed to load loot sound at '%s'. Check the plugin "
+			       "mount point and the asset's name."), LootSoundPath);
 	}
 }
 
@@ -405,7 +407,7 @@ void ULootState::OnEnter_Implementation(AActor* Owner)
 		ItemObj = FSM->Blackboard->GetValueAsObject(BBKeys::bItem);
 	}
 
-	ABaseItem * Item = Cast<ABaseItem>(ItemObj);
+	ABaseItem* Item = Cast<ABaseItem>(ItemObj);
 	if (!Item)
 	{
 		// Nothing to loot — bail back to Wander on the next tick.
@@ -415,18 +417,17 @@ void ULootState::OnEnter_Implementation(AActor* Owner)
 	}
 	if (!WillIGrabThisItem(Item))
 	{
-		//because it is very full
-		UE_LOG(LogTemp,Error,TEXT("Wont Grab This Item"))
+		//Memory->m_SaveForLaterPoints.Add()
 		ResumeWandering();
 		return;
 	}
-	
+
 
 	m_ItemLocation = Item->GetActorLocation();
-	m_ScanElapsed  = 0.f;
-	m_LootTimer    = 0.f;
-	
-	
+	m_ScanElapsed = 0.f;
+	m_LootTimer = 0.f;
+
+
 	// Roll the paranoia dice. 1-in-3 by default, tunable via ScanProbability.
 	const bool bWillScan = FMath::FRand() < ScanProbability;
 
@@ -436,7 +437,7 @@ void ULootState::OnEnter_Implementation(AActor* Owner)
 		const FVector AwayDir = (Owner->GetActorLocation() - m_ItemLocation).GetSafeNormal2D();
 		m_DesiredRotation = AwayDir.IsNearlyZero() ? Owner->GetActorRotation() : AwayDir.Rotation();
 		m_DesiredRotation.Pitch = 0.f;
-		m_DesiredRotation.Roll  = 0.f;
+		m_DesiredRotation.Roll = 0.f;
 		m_Phase = ELootPhase::ScanAlign;
 
 		UE_LOG(LogTemp, Warning, TEXT("[Loot] Scanning before looting."));
@@ -447,7 +448,7 @@ void ULootState::OnEnter_Implementation(AActor* Owner)
 		const FVector TowardDir = (m_ItemLocation - Owner->GetActorLocation()).GetSafeNormal2D();
 		m_DesiredRotation = TowardDir.IsNearlyZero() ? Owner->GetActorRotation() : TowardDir.Rotation();
 		m_DesiredRotation.Pitch = 0.f;
-		m_DesiredRotation.Roll  = 0.f;
+		m_DesiredRotation.Roll = 0.f;
 		m_Phase = ELootPhase::AlignToItem;
 	}
 }
@@ -459,103 +460,99 @@ void ULootState::OnTick_Implementation(float DeltaTime, AActor* Owner)
 	switch (m_Phase)
 	{
 	case ELootPhase::ScanAlign:
-	{
-		// Rotate toward the "facing-away" target.
-		TickAlignToward(DeltaTime, Owner, m_DesiredRotation);
-		if (IsAlignedTo(Owner, m_DesiredRotation))
 		{
-			// Anchor the sweep so it oscillates around facing-away, not around
-			// wherever the actor happens to be when scanning starts.
-			m_ScanBaseRotation = m_DesiredRotation;
-			m_ScanElapsed      = 0.f;
-			m_Phase            = ELootPhase::Scanning;
+			// Rotate toward the "facing-away" target.
+			TickAlignToward(DeltaTime, Owner, m_DesiredRotation);
+			if (IsAlignedTo(Owner, m_DesiredRotation))
+			{
+				// Anchor the sweep so it oscillates around facing-away, not around
+				// wherever the actor happens to be when scanning starts.
+				m_ScanBaseRotation = m_DesiredRotation;
+				m_ScanElapsed = 0.f;
+				m_Phase = ELootPhase::Scanning;
+			}
+			break;
 		}
-		break;
-	}
 
 	case ELootPhase::Scanning:
-	{
-		// sin sweep around the base rotation. Smooth, no jerks at the edges.
-		m_ScanElapsed += DeltaTime;
-		const float YawOffset =
-			FMath::Sin(m_ScanElapsed * ScanSweepFrequency) * ScanSweepHalfAngleDeg;
-
-		FRotator Sweep = m_ScanBaseRotation;
-		Sweep.Yaw += YawOffset;
-		Owner->SetActorRotation(Sweep);
-
-			
-		if (m_ScanElapsed >= ScanDuration)
 		{
-			// Done checking our six — now turn around and look at the item.
-			const FVector TowardDir =
-				(m_ItemLocation - Owner->GetActorLocation()).GetSafeNormal2D();
-			m_DesiredRotation = TowardDir.IsNearlyZero()
-				? Owner->GetActorRotation() : TowardDir.Rotation();
-			m_DesiredRotation.Pitch = 0.f;
-			m_DesiredRotation.Roll  = 0.f;
-			m_Phase = ELootPhase::AlignToItem;
+			// sin sweep around the base rotation. Smooth, no jerks at the edges.
+			m_ScanElapsed += DeltaTime;
+			const float YawOffset =
+				FMath::Sin(m_ScanElapsed * ScanSweepFrequency) * ScanSweepHalfAngleDeg;
+
+			FRotator Sweep = m_ScanBaseRotation;
+			Sweep.Yaw += YawOffset;
+			Owner->SetActorRotation(Sweep);
+
+
+			if (m_ScanElapsed >= ScanDuration)
+			{
+				// Done checking our six — now turn around and look at the item.
+				const FVector TowardDir =
+					(m_ItemLocation - Owner->GetActorLocation()).GetSafeNormal2D();
+				m_DesiredRotation = TowardDir.IsNearlyZero()
+					                    ? Owner->GetActorRotation()
+					                    : TowardDir.Rotation();
+				m_DesiredRotation.Pitch = 0.f;
+				m_DesiredRotation.Roll = 0.f;
+				m_Phase = ELootPhase::AlignToItem;
+			}
+			break;
 		}
-		break;
-	}
-		
-		
+
 
 	case ELootPhase::AlignToItem:
-	{
-		TickAlignToward(DeltaTime, Owner, m_DesiredRotation);
-		if (IsAlignedTo(Owner, m_DesiredRotation))
 		{
-			m_LootTimer = 0.f;
-			m_Phase     = ELootPhase::Looting;
-			if (m_LootSound)
+			TickAlignToward(DeltaTime, Owner, m_DesiredRotation);
+			if (IsAlignedTo(Owner, m_DesiredRotation))
 			{
-				//Set Item To Null becase we garbbed it 
-				UGameplayStatics::PlaySoundAtLocation(
-					Owner, m_LootSound, Owner->GetActorLocation());
+				m_LootTimer = 0.f;
+				m_Phase = ELootPhase::Looting;
+				if (m_LootSound)
+				{
+					//Set Item To Null becase we garbbed it 
+					UGameplayStatics::PlaySoundAtLocation(
+						Owner, m_LootSound, Owner->GetActorLocation());
+				}
 			}
+			break;
 		}
-		break;
-	}
 
 	case ELootPhase::Looting:
-	{
-		m_LootTimer += DeltaTime;
-		if (m_LootTimer >= LootDuration)
 		{
-			// Pull the item from the blackboard (Wander set it on arrival).
-			ABaseItem* Item = nullptr;
-			if (FSM.IsValid() && FSM->Blackboard.IsValid())
+			m_LootTimer += DeltaTime;
+			if (m_LootTimer >= LootDuration)
 			{
-				UObject * ItemObj = FSM->Blackboard->GetValueAsObject(BBKeys::bItem);
-				Item = Cast<ABaseItem>(ItemObj);
+				// Pull the item from the blackboard (Wander set it on arrival).
+				ABaseItem* Item = nullptr;
+				if (FSM.IsValid() && FSM->Blackboard.IsValid())
+				{
+					UObject* ItemObj = FSM->Blackboard->GetValueAsObject(BBKeys::bItem);
+					Item = Cast<ABaseItem>(ItemObj);
+				}
+
+				//
+				if (m_TargetInventoryIndex.has_value())
+				{
+					GrabItem(m_TargetInventoryIndex.value());
+				}
+				ResumeWandering();
 			}
-			
-			if (m_TargetInventoryIndex.has_value())
-			{
-				GrabItem(m_TargetInventoryIndex.value());
-			}
-			
-			
-			//WillIGrabThisItem(Item);
-			//
-			ResumeWandering();
+			break;
 		}
-		break;
-	}
 	}
 }
 
-void ULootState::OnExit_Implementation(AActor * Owner)
+void ULootState::OnExit_Implementation(AActor* Owner)
 {
-	
 	m_TargetInventoryIndex.reset();
 	m_ScanElapsed = 0.f;
-	m_LootTimer   = 0.f;
-	m_Phase       = ELootPhase::AlignToItem;
-	
-	
-	FSM->Blackboard->SetValueAsObject(BBKeys::bItem,nullptr);
+	m_LootTimer = 0.f;
+	m_Phase = ELootPhase::AlignToItem;
+
+
+	FSM->Blackboard->SetValueAsObject(BBKeys::bItem, nullptr);
 }
 
 void ULootState::ResumeWandering()
@@ -573,7 +570,7 @@ void ULootState::TickAlignToward(float Dt, AActor* Owner, const FRotator& Target
 	FRotator New = FMath::RInterpTo(Cur, Target, Dt, RotationInterpSpeed);
 	// We only care about yaw here. Keep the pawn level.
 	New.Pitch = 0.f;
-	New.Roll  = 0.f;
+	New.Roll = 0.f;
 	Owner->SetActorRotation(New);
 }
 
@@ -587,105 +584,188 @@ bool ULootState::IsAlignedTo(AActor* Owner, const FRotator& Target) const
 }
 
 
-
-bool ULootState::WillIGrabThisItem(ABaseItem * Item)
+bool ULootState::WillIGrabThisItem(ABaseItem* Item)
 {
+	// Decision tree (in priority order):
+	//   1. Any empty slot?           → grab into first empty.
+	//   2. Full + new is Weapon:
+	//      a. NumWeapons < 3          → evict excess Food or Medkit.
+	//      b. NumWeapons == 3         → swap with LOWEST-value weapon iff new > old.
+	//   3. Full + new is Food (NumFood < 1)   → evict excess Weapon (lowest) or Medkit.
+	//   4. Full + new is Medkit (NumMedkit < 1)→ evict excess Weapon (lowest) or Food.
+	//   5. Anything else (Garbage, no need)   → skip.
+	// Ideal loadout = 3 Weapons / 1 Food / 1 Medkit. Converges from any
+	// starting state through repeated pickups.
+
+	m_TargetInventoryIndex.reset(); // clear previous decision
+
 	if (!Item)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[Loot] TryGrabItem: null item."));
+		UE_LOG(LogTemp, Warning, TEXT("[Loot] WillIGrab: null item."));
 		return false;
 	}
 	if (!Inventory.IsValid())
 	{
-		UE_LOG(LogTemp, Error, TEXT("[Loot] TryGrabItem: no inventory ref."));
+		UE_LOG(LogTemp, Error, TEXT("[Loot] WillIGrab: no inventory ref."));
 		return false;
 	}
-	
+
 	const EItemType Type = Item->GetItemType();
+	if (Type == EItemType::Garbage) return false;
 
-	int32 RangeMin = -1, RangeMax = -1;
-	LootSlots::RangeFor(Type, RangeMin, RangeMax);
-	if (RangeMin < 0)
-	{
-		UE_LOG(LogTemp, Warning,
-			TEXT("[Loot] No slot policy for item type %d — ignoring."), (int32)Type);
-		return false;
-	}
+	const TArray<ABaseItem*>& Slots = Inventory->GetInventory();
 
-	const TArray<ABaseItem*> & inventory = Inventory->GetInventory();
-	
-	for (int i = 0; i < Inventory->GetInventoryCapacity(); ++i)
+	// ---- 1) Empty slot? -----------------------------------------------
+	for (int32 i = 0; i < Slots.Num(); ++i)
 	{
-		if (inventory[i] == nullptr)
+		if (Slots[i] == nullptr)
 		{
 			m_TargetInventoryIndex = i;
-			return true; //Grab Anything in any spot 
+			return true;
 		}
 	}
-	
-	
+
+	// ---- Inventory is full. Count loadout and find candidate evictees.
+	int32 NumWeapons = 0, NumFood = 0, NumMedkit = 0;
+	int32 LowestWeaponSlot = -1;
+	float LowestWeaponScore = TNumericLimits<float>::Max();
+	int32 AnyFoodSlot = -1;
+	int32 AnyMedkitSlot = -1;
+
+	for (int32 i = 0; i < Slots.Num(); ++i)
+	{
+		ABaseItem* S = Slots[i];
+		if (!S) continue;
+		const EItemType ST = S->GetItemType();
+		switch (ST)
+		{
+		case EItemType::Pistol:
+		case EItemType::Shotgun:
+			{
+				++NumWeapons;
+				const float Score = LootSlots::WeaponScore(ST);
+				if (Score < LowestWeaponScore)
+				{
+					LowestWeaponScore = Score;
+					LowestWeaponSlot = i;
+				}
+				break;
+			}
+		case EItemType::Food:
+			++NumFood;
+			if (AnyFoodSlot < 0) AnyFoodSlot = i;
+			break;
+		case EItemType::Medkit:
+			++NumMedkit;
+			if (AnyMedkitSlot < 0) AnyMedkitSlot = i;
+			break;
+		default: break;
+		}
+	}
+
+	constexpr int32 IdealWeapons = 3;
+	constexpr int32 IdealFood = 1;
+	constexpr int32 IdealMedkit = 1;
+
+	// ---- 2) New item is a Weapon --------------------------------------
+	if (Type == EItemType::Pistol || Type == EItemType::Shotgun)
+	{
+		if (NumWeapons < IdealWeapons)
+		{
+			// We need more weapons. Evict an excess non-weapon.
+			if (NumFood > IdealFood && AnyFoodSlot >= 0)
+			{
+				m_TargetInventoryIndex = AnyFoodSlot;
+				return true;
+			}
+			if (NumMedkit > IdealMedkit && AnyMedkitSlot >= 0)
+			{
+				m_TargetInventoryIndex = AnyMedkitSlot;
+				return true;
+			}
+			// No excess to drop — unusual, but bail safely.
+			return false;
+		}
+
+		// 2b) At the weapon cap — swap with lowest weapon if new is better.
+		const float NewScore = LootSlots::WeaponScore(Type);
+		if (LowestWeaponSlot >= 0 && NewScore > LowestWeaponScore)
+		{
+			UE_LOG(LogTemp, Warning,
+			       TEXT("[Loot] Weapon upgrade: slot %d (score %.1f) → new (score %.1f)."),
+			       LowestWeaponSlot, LowestWeaponScore, NewScore);
+			m_TargetInventoryIndex = LowestWeaponSlot;
+			return true;
+		}
+		return false;
+	}
+
+	// ---- 3) New item is Food ------------------------------------------
+	if (Type == EItemType::Food)
+	{
+		if (NumFood >= IdealFood) return false;
+		if (NumWeapons > IdealWeapons && LowestWeaponSlot >= 0)
+		{
+			m_TargetInventoryIndex = LowestWeaponSlot;
+			return true;
+		}
+		if (NumMedkit > IdealMedkit && AnyMedkitSlot >= 0)
+		{
+			m_TargetInventoryIndex = AnyMedkitSlot;
+			return true;
+		}
+		return false;
+	}
+
+	// ---- 4) New item is Medkit ----------------------------------------
+	if (Type == EItemType::Medkit)
+	{
+		if (NumMedkit >= IdealMedkit) return false;
+		if (NumWeapons > IdealWeapons && LowestWeaponSlot >= 0)
+		{
+			m_TargetInventoryIndex = LowestWeaponSlot;
+			return true;
+		}
+		if (NumFood > IdealFood && AnyFoodSlot >= 0)
+		{
+			m_TargetInventoryIndex = AnyFoodSlot;
+			return true;
+		}
+		return false;
+	}
+
 	return false;
-
-
-	// int32 WorstSlot  = -1;
-	// float WorstScore = TNumericLimits<float>::Max();
-	//
-	// for (int32 i = RangeMin; i <= RangeMax; ++i)
-	// {
-	// 	if (!Slots[i]) continue; // shouldn't happen — we already checked above
-	// 	const float ExistingScore = LootSlots::WeaponScore(Slots[i]->GetItemType());
-	// 	if (ExistingScore < WorstScore)
-	// 	{
-	// 		WorstScore = ExistingScore;
-	// 		WorstSlot  = i;
-	// 	}
-	//}
-	//
-	// if (WorstSlot < 0)
-	// {
-	// 	UE_LOG(LogTemp, Error, TEXT("[Loot] Couldn't identify worst weapon slot."));
-	// 	return false;
-	// }
-	//
-	// const float NewScore = LootSlots::WeaponScore(Type);
-	// if (NewScore <= WorstScore)
-	// {
-	// 	UE_LOG(LogTemp, Warning,
-	// 		TEXT("[Loot] New weapon (type=%d, score=%.1f) does not beat existing "
-	// 		     "(slot=%d, score=%.1f) — skipping swap."),
-	// 		(int32)Type, NewScore, WorstSlot, WorstScore);
-	// 	return false;
-	// }
-	//
-	// // --- 4) Swap: remove the worst, grab the new one into that slot.
-	// const bool bRemoved = Inventory->RemoveItem(WorstSlot);
-	// if (!bRemoved)
-	// {
-	// 	UE_LOG(LogTemp, Error,
-	// 		TEXT("[Loot] RemoveItem(slot=%d) failed; abort swap."), WorstSlot);
-	// 	return false;
-	// }
-	// const bool bGrabbed = Inventory->GrabItem(WorstSlot, Item);
-	// UE_LOG(LogTemp, Warning,
-	// 	TEXT("[Loot] Swapped slot %d: old score %.1f -> new score %.1f (success=%d)."),
-	// 	WorstSlot, WorstScore, NewScore, bGrabbed ? 1 : 0);
-	// return bGrabbed;
 }
 
 void ULootState::GrabItem(int Slot)
 {
-//	Is this Slot is not empty remove what is in there 
-	 if (Inventory->GetInventory()[Slot] != nullptr)
-	 {
-	 	Inventory->RemoveItem(Slot);
-	 }
-	UObject * ItemObj = nullptr;
+	// 1) Read the item we're about to grab from the blackboard.
+	UObject* ItemObj = nullptr;
 	if (FSM.IsValid() && FSM->Blackboard.IsValid())
 	{
 		ItemObj = FSM->Blackboard->GetValueAsObject(BBKeys::bItem);
 	}
-	 ABaseItem * Item = Cast<ABaseItem>(ItemObj);
-	 Inventory->GrabItem(Slot,Item);
+	ABaseItem* Item = Cast<ABaseItem>(ItemObj);
+	if (!Item) return;
+
+	// 2) If the target slot is occupied, drop what's there (swap path).
+	if (Inventory->GetInventory()[Slot] != nullptr)
+	{
+		Inventory->RemoveItem(Slot);
+	}
+
+	// 3) Place the new item.
+	Inventory->GrabItem(Slot, Item);
+
+	// 4) Forget the interest point for this item — we just consumed it.
+	// FInterestPoint::operator== matches by Actor, so a probe with only
+	// the Actor field set is enough for TArray::Remove to find the entry.
+	if (Memory.IsValid())
+	{
+		FInterestPoint Probe;
+		Probe.Actor = Item;
+		Memory->m_WannaPointsInBrain.Remove(Probe);
+	}
 }
 
 UCombatState::UCombatState()
@@ -696,21 +776,19 @@ UCombatState::UCombatState()
 void UCombatState::OnInit()
 {
 	SteeringComponent = GetSibling<USteeringComponent>();
-	Memory            = GetSibling<UStudentPerceptor>();
-	Inventory         = GetSibling<UInventoryComponent>();
-
+	Memory = GetSibling<UStudentPerceptor>();
+	Inventory = GetSibling<UInventoryComponent>();
 	
-	static const TCHAR* PistolPath  = TEXT("/LozanoMiguelZombie/Sounds/Pistol.Pistol");
+	static const TCHAR* PistolPath = TEXT("/LozanoMiguelZombie/Sounds/Pistol.Pistol");
 	static const TCHAR* ShotgunPath = TEXT("/LozanoMiguelZombie/Sounds/Shotgun.Shotgun");
 	
-
-	m_PistolSound  = LoadObject<USoundBase>(nullptr, PistolPath);
+	m_PistolSound = LoadObject<USoundBase>(nullptr, PistolPath);
 	m_ShotgunSound = LoadObject<USoundBase>(nullptr, ShotgunPath);
 
-	static const TCHAR* PanicPath    = TEXT("/LozanoMiguelZombie/Sounds/OhShitScream.OhShitScream");
+	static const TCHAR* PanicPath = TEXT("/LozanoMiguelZombie/Sounds/OhShitScream.OhShitScream");
 	static const TCHAR* EmptyGunPath = TEXT("/LozanoMiguelZombie/Sounds/EmptyGun.EmptyGun");
 
-	m_PanicSound    = LoadObject<USoundBase>(nullptr, PanicPath);
+	m_PanicSound = LoadObject<USoundBase>(nullptr, PanicPath);
 	m_EmptyGunSound = LoadObject<USoundBase>(nullptr, EmptyGunPath);
 
 	if (!m_PistolSound)
@@ -727,55 +805,39 @@ void UCombatState::OnEnter_Implementation(AActor* Owner)
 {
 	UE_LOG(LogTemp, Warning, TEXT("UCombat State OnEnter"));
 
-	// Defensive: ensure the "all clear" pulse from a previous combat
-	// session isn't still true. Without this, the per-state Combat->Wander
-	// transition would fire on the very first tick of THIS new fight.
+
 	if (FSM.IsValid() && FSM->Blackboard.IsValid())
 	{
 		FSM->Blackboard->SetValueAsBool(BBKeys::bThreatGone, false);
 	}
-
 	if (SteeringComponent.IsValid()) SteeringComponent->StopMoving();
 	if (SteeringComponent.IsValid()) SteeringComponent->SetRotate(false);
 
 	m_CurrentTarget.Reset();
-	
 }
 
-void UCombatState::OnTick_Implementation(float DeltaTime, AActor * Owner)
+void UCombatState::OnTick_Implementation(float DeltaTime, AActor* Owner)
 {
 	if (!Owner || !Memory.IsValid()) return;
 
 	
-	//Inevbtory for now only grabbing Items when there is a free Spot and not 
-	//not coming back for items whej forgotten 
-	//what if it has No weapons 
-	//what if I had a buch Around him before 
-	//what if it runs out of ammo
-	//got to the last locations etc 
-	//what if it gets interruped when looting grab stuff quick 
-	// if it has Zombies return to last Items in memory 
-	// makw sure you dont stay looting what you wont grab 
-	//bomb suicide 
-	//
-	//this is called everyTime Agent Arrives of Move function is called
-	//if is moving to a target and then Move gets called Again inmediatly
-	//Handle Arrived Fires and would set it to Abort
-	
-	// if it is looting needs to grab eveything quick 
-	//if it has no weapons // two things can happen can go 
-	//to previous in memory or explore 
-	// it loots even if it wont grab it
-	//it can run out of ammo 
-	//still dont use Items and search for them 
-	//use med kits ,food //return for items
-	
-	
+	//Still On Combat
+	if (m_OnDangerSearchingOldWeapon)
+	{
+		if (m_ClosestWeaponInMemory.IsValid())
+		{
+			SteeringComponent->Move(m_ClosestWeaponInMemory->GetActorLocation());
+		}
+		return;
+	}
+
+
+	//////////////////////
 	
 	auto Zombies = Memory->GetVisibleZombies();
 	if (Zombies.IsEmpty())
 	{
-		FTimerManager & TM = GetWorld()->GetTimerManager();
+		FTimerManager& TM = GetWorld()->GetTimerManager();
 		if (!TM.IsTimerActive(m_NoMoreZombiesAroundTimer))
 		{
 			TM.SetTimer(
@@ -791,91 +853,97 @@ void UCombatState::OnTick_Implementation(float DeltaTime, AActor * Owner)
 		GetWorld()->GetTimerManager().ClearTimer(m_NoMoreZombiesAroundTimer);
 	}
 	// No More Zombies In Front Of Person 
-	ABaseZombie  * Target = PickClosestZombie(Zombies, Owner);
+	ABaseZombie * Target = PickClosestZombie(Zombies, Owner);
 	if (!Target) return;
 	m_CurrentTarget = Target;
-	bool IsFacingTarget  = FaceTarget(DeltaTime, Owner, Target);
-	
+	bool IsFacingTarget = FaceTarget(DeltaTime, Owner, Target);
 
-	
 	if (IsFacingTarget && m_CanShoot)
 	{
 		const TArray<int32> WeaponSlots = FindWeaponSlots();
 		if (WeaponSlots.IsEmpty())
 		{
-			// if it remembers something otehrwise Suicide 
-			
-			FSM->Blackboard->SetValueAsBool(BBKeys::bShouldSuicide,true);
-			UE_LOG(LogTemp,Warning, TEXT("[Combat] Weapons are not available Suiciding."));
+			// GetClosestWeaponInMemory returns FInterestPoint* (or nullptr).
+			// Pull the actor out, cast to ABaseItem, and store as a weak
+			// ref to the actual world actor — TWeakObjectPtr can't track a
+			// FInterestPoint struct.
+			m_ClosestWeaponInMemory.Reset();
+			if (FInterestPoint * WeaponIP = Memory->GetClosestWeaponInMemory())
+			{
+				m_ClosestWeaponInMemory = Cast<ABaseItem>(WeaponIP->Actor.Get());
+			}
+
+			if (m_ClosestWeaponInMemory.IsValid())
+			{
+				m_OnDangerSearchingOldWeapon = true;
+				UE_LOG(LogTemp, Warning, TEXT("[Combat] Weapons are not available Searching for And Old One"));
+			}
+			else
+			{
+				FSM->Blackboard->SetValueAsBool(BBKeys::bShouldSuicide, true);
+				UE_LOG(LogTemp, Warning, TEXT("[Combat] Weapons are not available Suiciding."));
+			}
+
 			return;
 		}
-		
-		///if Many Enemies Choose Shotgun
-		///
-		///
+
 		for (int32 Slot : WeaponSlots)
 		{
-			// CanShoot = false
-			ABaseItem * WeaponItem = Inventory->GetInventory()[Slot];
+			ABaseItem* WeaponItem = Inventory->GetInventory()[Slot];
 			if (!WeaponItem)
 			{
-				UE_LOG(LogTemp,Error,TEXT("Not Valid Item"))
+				UE_LOG(LogTemp, Error, TEXT("Not Valid Item"))
 				continue;
 			}
-				bool HasValue = WeaponItem->GetValue() > 0;
-			
-				m_CanShoot = false;
-				if (!HasValue)
-				{
-					
-					UE_LOG(LogTemp,Error,TEXT("NO AMMO"))
-					Inventory->RemoveItem(Slot);
 
-					// Immediate dry-click on the trigger-pull frame.
-					PlayEmptyWeaponSound();
+			SteeringComponent->Move(Owner->GetActorLocation() + Target->GetActorForwardVector() * 400.f);
 
-					// Panic scream 0.3s later, on its own handle so it isn't
-					// cancelled by the reset-shoot-flag timer below.
-					GetWorld()->GetTimerManager().SetTimer(
-						m_OhShitSounds,
-						this,
-						&UCombatState::PlayOhShitSound,
-						0.3f,
-						false);
+			bool HasValue = WeaponItem->GetValue() > 0;
+			m_CanShoot = false;
+			if (!HasValue)
+			{
+				UE_LOG(LogTemp, Error, TEXT("NO AMMO"))
+				Inventory->RemoveItem(Slot);
+				PlayEmptyWeaponSound();
+				GetWorld()->GetTimerManager().SetTimer(
+					m_OhShitSounds,
+					this,
+					&UCombatState::PlayOhShitSound,
+					0.3f,
+					false);
 
-					// Re-arm shooting after 0.9s.
-					GetWorld()->GetTimerManager().SetTimer(
-						m_ResetShootingFlag,
-						this,
-						&UCombatState::ResetShootFlag,
-						1.f,
-						false);
-				}
-				else
-				{
-					
-					SteeringComponent->Move(Owner->GetActorLocation() + Target->GetActorForwardVector() * 5.f);
-					UE_LOG(LogTemp,Warning,TEXT(" SHOOT"))
-					Inventory->UseItem(Slot);
-					PlayWeaponSound(Owner, WeaponItem);
-					DrawWeaponTrace(Owner, WeaponItem);
+				// Re-arm shooting after 0.9s.
+				GetWorld()->GetTimerManager().SetTimer(
+					m_ResetShootingFlag,
+					this,
+					&UCombatState::ResetShootFlag,
+					0.6f,
+					false);
+			}
+			else
+			{
+				// IF 
 
-					// Re-arm shooting after the standard cooldown.
-					GetWorld()->GetTimerManager().SetTimer(
-						m_ResetShootingFlag,
-						this,
-						&UCombatState::ResetShootFlag,
-						0.7f,
-						false);
-					int value  = WeaponItem->GetValue();
-					
-					UE_LOG(LogTemp,Warning,TEXT(" VALUE IS : %d"),value)
-				}
+				SteeringComponent->Move(Owner->GetActorLocation() + Target->GetActorForwardVector() * 400.f);
+				UE_LOG(LogTemp, Warning, TEXT(" SHOOT"))
+				Inventory->UseItem(Slot);
+				PlayWeaponSound(Owner, WeaponItem);
+				DrawWeaponTrace(Owner, WeaponItem);
+
+				// Re-arm shooting after the standard cooldown.
+				GetWorld()->GetTimerManager().SetTimer(
+					m_ResetShootingFlag,
+					this,
+					&UCombatState::ResetShootFlag,
+					0.3f,
+					false);
+				int value = WeaponItem->GetValue();
+				UE_LOG(LogTemp, Warning, TEXT(" VALUE IS : %d"), value)
+			}
 			break;
 		}
 	}
 }
-
 
 
 void UCombatState::PlayOhShitSound()
@@ -909,14 +977,14 @@ void UCombatState::GoBackToWander()
 // ---- Helpers ---------------------------------------------------------------
 
 ABaseZombie* UCombatState::PickClosestZombie(
-	const TArray<ABaseZombie*> & Zombies, AActor* Owner) const
+	const TArray<ABaseZombie*>& Zombies, AActor* Owner) const
 {
 	if (Zombies.IsEmpty() || !Owner) return nullptr;
 	const FVector MyLoc = Owner->GetActorLocation();
 
 	ABaseZombie* Closest = nullptr;
-	float ClosestDistSq  = TNumericLimits<float>::Max();
-	for (ABaseZombie * Z : Zombies)
+	float ClosestDistSq = TNumericLimits<float>::Max();
+	for (ABaseZombie* Z : Zombies)
 	{
 		if (!Z) continue;
 		const float DistSq = FVector::DistSquared(MyLoc, Z->GetActorLocation());
@@ -961,7 +1029,7 @@ TArray<int32> UCombatState::FindWeaponSlots() const
 	return Slots;
 }
 
-bool UCombatState::FaceTarget(float Dt, AActor * Owner, AActor * Threat) const
+bool UCombatState::FaceTarget(float Dt, AActor* Owner, AActor* Threat) const
 {
 	if (!Owner || !Threat) return false;
 	const FVector ToTarget =
@@ -970,51 +1038,24 @@ bool UCombatState::FaceTarget(float Dt, AActor * Owner, AActor * Threat) const
 
 	FRotator TargetRot = ToTarget.Rotation();
 	TargetRot.Pitch = 0.f;
-	TargetRot.Roll  = 0.f;
+	TargetRot.Roll = 0.f;
 
 	const FRotator NewRot = FMath::RInterpTo(Owner->GetActorRotation(), TargetRot, Dt, FaceTargetSpeed);
 	Owner->SetActorRotation(NewRot);
-	
+
 	const float DeltaYaw = FMath::Abs(FRotator::NormalizeAxis(Owner->GetActorRotation().Yaw - TargetRot.Yaw));
-	
+
 	return DeltaYaw <= 2.0f;
-	
 }
 
 void UCombatState::OnExit_Implementation(AActor* Owner)
 {
 	ResetShootFlag();
 	m_CurrentTarget.Reset();
-	m_Timer       = 0.f;
-	m_ZigzagTimer = 0.f;
-	m_FireTimer   = 0.f;
-
+	m_Timer = 0.f;
+	m_FireTimer = 0.f;
 }
-void UCombatState::IssueRetreatMove(AActor* Owner, AActor* Threat)
-{
-	if (!Owner || !Threat || !SteeringComponent.IsValid()) return;
 
-	const FVector MyLoc      = Owner->GetActorLocation();
-	const FVector ThreatLoc  = Threat->GetActorLocation();
-
-	FVector AwayDir = (MyLoc - ThreatLoc).GetSafeNormal2D();
-	if (AwayDir.IsNearlyZero())
-	{
-		// Stacked on top of the zombie — fall back to current backward.
-		AwayDir = -Owner->GetActorForwardVector();
-		AwayDir.Z = 0.f;
-		AwayDir.Normalize();
-	}
-
-	// Perpendicular in world XY = cross with UpVector. Flip sign per zigzag.
-	const FVector LateralDir =
-		FVector::CrossProduct(AwayDir, FVector::UpVector).GetSafeNormal();
-
-	const FVector Destination =
-		MyLoc + AwayDir * RetreatDistance + LateralDir * (ZigzagAmount * m_ZigzagSide);
-
-	SteeringComponent->Move(Destination);
-}
 
 void UCombatState::DrawWeaponTrace(AActor* Owner, ABaseItem* WeaponItem) const
 {
@@ -1024,7 +1065,7 @@ void UCombatState::DrawWeaponTrace(AActor* Owner, ABaseItem* WeaponItem) const
 
 	// Mirrors AWeapon::Shoot: trace from Survivor's location along Direction
 	// for 10000uu against ECC_Pawn, ignoring the survivor itself.
-	const FVector Start   = Owner->GetActorLocation();
+	const FVector Start = Owner->GetActorLocation();
 	const FVector Forward = Owner->GetActorForwardVector();
 
 	FCollisionQueryParams Params;
@@ -1040,42 +1081,41 @@ void UCombatState::DrawWeaponTrace(AActor* Owner, ABaseItem* WeaponItem) const
 		const bool bHit = W->LineTraceSingleByChannel(
 			Hit, Start, End, ECC_Pawn, Params);
 
-		const FVector LineEnd  = bHit ? Hit.ImpactPoint : End;
-		const FColor  LineCol  = bHit ? FColor::Red    : FColor::Yellow;
+		const FVector LineEnd = bHit ? Hit.ImpactPoint : End;
+		const FColor LineCol = bHit ? FColor::Red : FColor::Yellow;
 
 		DrawDebugLine(W, Start, LineEnd, LineCol,
-			/*bPersistentLines*/ false,
-			/*LifeTime*/         1.0f,
-			/*DepthPriority*/    0,
-			/*Thickness*/        2.f);
+		              /*bPersistentLines*/ false,
+		              /*LifeTime*/ 1.0f,
+		              /*DepthPriority*/ 0,
+		              /*Thickness*/ 2.f);
 
 		if (bHit)
 		{
 			DrawDebugSphere(W, Hit.ImpactPoint, 20.f, 8, FColor::Red,
-				false, 1.0f, 0, 1.f);
+			                false, 1.0f, 0, 1.f);
 		}
-		
 	};
 
 	switch (WeaponItem->GetItemType())
 	{
 	case EItemType::Pistol:
-	{
-		TraceAndDraw(Forward);
-		break;
-	}
-	case EItemType::Shotgun:
-	{
-		constexpr int32 ShotsPerAmmo  = 3;
-		constexpr float MaxSprayDelta = 10.f;
-		for (int32 i = 0; i < ShotsPerAmmo; ++i)
 		{
-			const float YawDeg = FMath::RandRange(-MaxSprayDelta, MaxSprayDelta);
-			const FVector Dir = Forward.ToOrientationRotator().Add(0.f, YawDeg, 0.f).Vector();
-			TraceAndDraw(Dir);
+			TraceAndDraw(Forward);
+			break;
 		}
-		break;
-	}
+	case EItemType::Shotgun:
+		{
+			constexpr int32 ShotsPerAmmo = 3;
+			constexpr float MaxSprayDelta = 10.f;
+			for (int32 i = 0; i < ShotsPerAmmo; ++i)
+			{
+				const float YawDeg = FMath::RandRange(-MaxSprayDelta, MaxSprayDelta);
+				const FVector Dir = Forward.ToOrientationRotator().Add(0.f, YawDeg, 0.f).Vector();
+				TraceAndDraw(Dir);
+			}
+			break;
+		}
 	default:
 		// Not a weapon — nothing to draw.
 		break;
@@ -1091,8 +1131,10 @@ void UCombatState::PlayWeaponSound(AActor* Owner, ABaseItem* WeaponItem) const
 	USoundBase* SoundToPlay = nullptr;
 	switch (WeaponItem->GetItemType())
 	{
-	case EItemType::Pistol:  SoundToPlay = m_PistolSound;  break;
-	case EItemType::Shotgun: SoundToPlay = m_ShotgunSound; break;
+	case EItemType::Pistol: SoundToPlay = m_PistolSound;
+		break;
+	case EItemType::Shotgun: SoundToPlay = m_ShotgunSound;
+		break;
 	default: return; // not a weapon
 	}
 
@@ -1106,50 +1148,41 @@ void UCombatState::PlayWeaponSound(AActor* Owner, ABaseItem* WeaponItem) const
 		SoundToPlay,
 		Owner->GetActorLocation(),
 		/*VolumeMultiplier*/ 1.0f,
-		/*PitchMultiplier*/  1.0f);
+		/*PitchMultiplier*/ 1.0f);
 }
 
 ///////////////////////////////
 
 
-
-
-
-
 void UFleeState::OnInit()
 {
-	
 }
 
 UFleeState::UFleeState()
 	: UStateBase()
 {
-	
 }
 
 void UFleeState::OnEnter_Implementation(AActor* Owner)
 {
-	UE_LOG(LogTemp,Warning, TEXT("UFlee State OnEnter "));
-	
+	UE_LOG(LogTemp, Warning, TEXT("UFlee State OnEnter "));
 }
+
 void UFleeState::OnTick_Implementation(float DeltaTime, AActor* Owner)
 {
-	
 	//GO ON ZIG ZAG WHILE looking at the Zombies And Shooting Them 1 by One 
 	//Add A grenade 
 }
 
-void UFleeState::OnExit_Implementation(AActor * Owner)
+void UFleeState::OnExit_Implementation(AActor* Owner)
 {
 	//make it rotate again 
 }
 
 
-
 USuicideState::USuicideState()
 	: UStateBase()
 {
-	
 }
 
 void USuicideState::OnInit()
@@ -1157,43 +1190,43 @@ void USuicideState::OnInit()
 	// Load both SFX once from the plugin Content folder. ExplosionSound is
 	// played at LocationToExplode by Explode(); TickBomb plays in OnEnter
 	// so the survivor audibly arms before the boom.
-	
-	
+
+
 	SteeringComponent = GetSibling<USteeringComponent>();
-	
+
 	static const TCHAR* ExplosionPath =
 		TEXT("/LozanoMiguelZombie/Sounds/ExplosionSound.ExplosionSound");
 	static const TCHAR* TickBombPath =
-		TEXT("/LozanoMiguelZombie/Sounds/freesound_community-ticking-bomb-90319.freesound_community-ticking-bomb-90319");
+		TEXT(
+			"/LozanoMiguelZombie/Sounds/freesound_community-ticking-bomb-90319.freesound_community-ticking-bomb-90319");
 
 	m_ExplosionSound = LoadObject<USoundBase>(nullptr, ExplosionPath);
-	m_TickBombSound  = LoadObject<USoundBase>(nullptr, TickBombPath);
+	m_TickBombSound = LoadObject<USoundBase>(nullptr, TickBombPath);
 
 	if (!m_ExplosionSound)
 	{
 		UE_LOG(LogTemp, Error,
-			TEXT("[Suicide] Failed to load explosion sound at '%s'."), ExplosionPath);
+		       TEXT("[Suicide] Failed to load explosion sound at '%s'."), ExplosionPath);
 	}
 	if (!m_TickBombSound)
 	{
 		UE_LOG(LogTemp, Error,
-			TEXT("[Suicide] Failed to load tick-bomb sound at '%s'."), TickBombPath);
+		       TEXT("[Suicide] Failed to load tick-bomb sound at '%s'."), TickBombPath);
 	}
 }
 
 
 void USuicideState::OnEnter_Implementation(AActor* Owner)
 {
-	
-	FSM->Blackboard->SetValueAsBool(BBKeys::bThreatNearby,false);
-	FSM->Blackboard->SetValueAsBool(BBKeys::bThreatGone,false);
+	FSM->Blackboard->SetValueAsBool(BBKeys::bThreatNearby, false);
+	FSM->Blackboard->SetValueAsBool(BBKeys::bThreatGone, false);
 	UE_LOG(LogTemp, Warning, TEXT("Suicide State OnEnter "));
 
 	if (SteeringComponent.IsValid())
 	{
 		SteeringComponent->StopMoving();
 	}
-	
+
 	if (!Owner) return;
 	LocationToExplode = Owner->GetActorLocation();
 
@@ -1224,7 +1257,6 @@ void USuicideState::OnTick_Implementation(float DeltaTime, AActor* Owner)
 	// const float Result = m_Radius * Normalized;
 
 
-
 	if (m_UpdateRadius)
 	{
 		Timer += DeltaTime;
@@ -1234,6 +1266,7 @@ void USuicideState::OnTick_Implementation(float DeltaTime, AActor* Owner)
 	}
 	DRAW_CIRCLE(GetWorld(), Owner->GetActorLocation(), m_ExplosionRadius, FColor::Red, 3.f);
 }
+
 void USuicideState::Explode()
 {
 	if (m_ExplosionSound)
@@ -1241,38 +1274,34 @@ void USuicideState::Explode()
 		UGameplayStatics::PlaySoundAtLocation(
 			GetWorld(), m_ExplosionSound, LocationToExplode);
 	}
-	
-	
+
+
 	FTimerHandle KillPlayerTimer;
 	GetWorld()->GetTimerManager().SetTimer(
-				KillPlayerTimer,
+		KillPlayerTimer,
 		this,
 		&USuicideState::KillPlayer,
 		0.4f,
 		false);
-	
+
 	// Boom SFX at the blast point — fire-and-forget, 3D-spatialized.
-	
 }
 
 void USuicideState::KillPlayer()
 {
 	UGameplayStatics::ApplyRadialDamage(
 		GetWorld(),
-		99999.f,                 // Damage
-		LocationToExplode,      // Origin
-		m_Radius,               // Radius
+		99999.f, // Damage
+		LocationToExplode, // Origin
+		m_Radius, // Radius
 		UDamageType::StaticClass(),
-		TArray<AActor*>(),      // Actors to ignore
-		nullptr,                // Damage causer
+		TArray<AActor*>(), // Actors to ignore
+		nullptr, // Damage causer
 		nullptr,
-		true// Full damage
+		true // Full damage
 	);
 }
 
-void USuicideState::OnExit_Implementation(AActor * Owner)
+void USuicideState::OnExit_Implementation(AActor* Owner)
 {
-	
-	
 }
-

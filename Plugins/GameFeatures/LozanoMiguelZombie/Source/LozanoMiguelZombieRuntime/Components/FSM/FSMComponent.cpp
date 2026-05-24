@@ -357,7 +357,16 @@ namespace
 		{
 			if (Slots[i] && Slots[i]->GetItemType() == DesiredType)
 			{
+				if (Slots[i]->GetValue() > 0)
+				{
+					
 				return Inv->UseItem(i);
+					
+				}
+				else
+				{
+					Inv->RemoveItem(i);
+				}
 			}
 		}
 		return false;
