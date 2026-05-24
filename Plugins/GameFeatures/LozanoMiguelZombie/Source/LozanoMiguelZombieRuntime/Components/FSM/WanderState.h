@@ -30,13 +30,15 @@ protected:
 
 
 	EReasonToMove m_ReasonToMove;
-	FInterestPoint * m_BestInterest;
 
-	FInterestPoint * m_previousInterest;
+	// Weak ref to the AActor we picked as our current interest target.
+	// We store the actor (which lives in its own memory) rather than a
+	// FInterestPoint* (which points INTO the perceptor's TArray and would
+	// dangle the moment that array reallocates on AddUnique).
+	// IsValid() returns false if the actor is destroyed mid-chase.
+	TWeakObjectPtr<AActor> m_BestInterestActor;
+
 	bool m_GoingToPatrolPoint = false;
-
-
-	bool m_FirstFrame = true;
 
 
 	UFUNCTION()

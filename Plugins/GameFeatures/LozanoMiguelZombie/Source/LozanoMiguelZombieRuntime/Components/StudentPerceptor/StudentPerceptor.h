@@ -109,6 +109,12 @@ public:
 
 	void ForgetInterestPoints(const FInterestPoint& InterestPoint);
 
+	// Find the InterestPoint whose Actor matches and flip m_Visited to true.
+	// Lets callers mark "I consumed/visited this" without holding a raw
+	// pointer into m_WannaPointsInBrain (which would dangle the moment the
+	// array reallocates).
+	void MarkVisited(AActor* Target);
+
 	// --- Debug: zombie perception audit -----------------------------------
 	// Periodic scan of all ABaseZombie actors in the world. Any zombie that
 	// lacks an AIPerceptionStimuliSourceComponent (or has one but isn't

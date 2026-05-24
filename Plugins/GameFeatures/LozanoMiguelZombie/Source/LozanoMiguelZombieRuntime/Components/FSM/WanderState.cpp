@@ -98,14 +98,18 @@ void UWanderState::HandleArrived(EPathFollowingResult::Type WhatHappened)
 
 	if (WhatHappened != EPathFollowingResult::Type::Success) return;
 
+	// Resolve the actor we were chasing — weak ptr is safe across the
+	// perceptor's TArray reallocations, unlike the old FInterestPoint*.
+	AActor* InterestActor = m_BestInterestActor.Get();
+
 	switch (m_ReasonToMove)
 	{
 	case EReasonToMove::Loot:
 		UE_LOG(LogTemp, Warning, TEXT(" Arrived to Loot "));
 		FSM->Blackboard.Get()->SetValueAsBool(BBKeys::bArrivedAtInterestPoint, true);
-		if (m_BestInterest)
+		if (InterestActor)
 		{
-			FSM->Blackboard.Get()->SetValueAsObject(BBKeys::bItem, m_BestInterest->Actor.Get());
+			FSM->Blackboard.Get()->SetValueAsObject(BBKeys::bItem, InterestActor);
 		}
 		break;
 
@@ -122,9 +126,11 @@ void UWanderState::HandleArrived(EPathFollowingResult::Type WhatHappened)
 		break;
 	}
 
-	if (m_BestInterest)
+	// Look the InterestPoint up by actor identity and flip m_Visited.
+	// Helper on Memory hides the TArray walk and never hands us a raw ptr.
+	if (InterestActor && Memory.IsValid())
 	{
-		m_BestInterest->m_Visited = true;
+		Memory->MarkVisited(InterestActor);
 	}
 }
 
@@ -153,11 +159,22 @@ void UWanderState::PickNewTarget(AActor* Owner)
 	if (!Owner) return;
 	if (!Memory.Get()) return;
 
-	m_BestInterest = Memory->GetBestInterestPoint();
-	if (m_BestInterest)
+	// IMPORTANT: GetBestInterestPoint returns a pointer INTO the perceptor's
+	// TArray. Use it immediately to grab the actor — never store the
+	// FInterestPoint* itself, because the next AddUnique could reallocate
+	// the array and dangle the pointer.
+	m_BestInterestActor.Reset();
+	FInterestPoint* IP = Memory->GetBestInterestPoint();
+
+	if (IP)
 	{
+		AActor* InterestActor = IP->Actor.Get();
+		// Capture the actor in our long-lived weak ptr. IP is no longer
+		// used past this point — safe even if the array reallocates next.
+		m_BestInterestActor = InterestActor;
+
 		m_GoingToPatrolPoint = false;
-		if (Cast<AHouse>(m_BestInterest->Actor.Get()))
+		if (Cast<AHouse>(InterestActor))
 		{
 			m_ReasonToMove = EReasonToMove::VisitHouse;
 		}
@@ -165,7 +182,10 @@ void UWanderState::PickNewTarget(AActor* Owner)
 		{
 			m_ReasonToMove = EReasonToMove::Loot;
 		}
-		Steering->Move(m_BestInterest->Actor.Get()->GetActorLocation());
+		if (InterestActor)
+		{
+			Steering->Move(InterestActor->GetActorLocation());
+		}
 	}
 	else
 	{

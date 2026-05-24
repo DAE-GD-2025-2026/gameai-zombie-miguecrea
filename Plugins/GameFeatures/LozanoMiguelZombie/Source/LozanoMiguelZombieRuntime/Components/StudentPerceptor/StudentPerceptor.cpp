@@ -213,7 +213,23 @@ FInterestPoint * UStudentPerceptor::GetBestInterestPoint()
 }
 
 
-FInterestPoint* UStudentPerceptor::GetClosestWeaponInMemory()
+void UStudentPerceptor::MarkVisited(AActor* Target)
+{
+	if (!Target) return;
+	// Iterate by reference and modify in place — safe because we use IP
+	// immediately and don't store a pointer that could survive a realloc.
+	for (FInterestPoint & IP : m_WannaPointsInBrain)
+	{
+		if (IP.Actor == Target)
+		{
+			IP.m_Visited = true;
+			return;
+		}
+	}
+}
+
+
+FInterestPoint * UStudentPerceptor::GetClosestWeaponInMemory()
 {
 	// Scan m_WannaPointsInBrain for the closest unvisited weapon (Pistol or
 	// Shotgun). Returns nullptr if memory holds no weapons or none are
