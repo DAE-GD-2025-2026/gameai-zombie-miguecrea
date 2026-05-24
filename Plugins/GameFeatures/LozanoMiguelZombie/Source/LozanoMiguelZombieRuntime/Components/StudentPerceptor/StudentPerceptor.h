@@ -123,8 +123,26 @@ public:
 	void LogUnperceivedZombies() const;
 	
 	void Suicide();
-	
+
 	void AddZombiesToMemory();
+
+	// Scans every APurgeZone in the world. Sets bPurgeZoneNearby on the BB
+	// if any zone's danger radius (Diameter/2 + PurgeZoneBuffer) overlaps
+	// the owner's location. Called every tick.
+	void UpdatePurgeZoneFlag();
+
+	// Hysteresis bands for the purge-zone proximity check.
+	// Enter buffer: how far the danger radius extends BEYOND the zone's
+	//   physical radius. 0 = trigger exactly at the edge. A NEGATIVE
+	//   value means trigger only once the survivor is that many units
+	//   INSIDE (e.g. -50 = must be 50uu inside the zone before fleeing).
+	// Exit buffer: must be larger than enter to avoid bouncing. The gap
+	//   between them is the deadband the survivor crosses while running.
+	UPROPERTY(EditDefaultsOnly, Category="Threat")
+	float PurgeZoneEnterBuffer = 0.f;
+
+	UPROPERTY(EditDefaultsOnly, Category="Threat")
+	float PurgeZoneExitBuffer  = 400.f;
 
 private:
 

@@ -195,28 +195,14 @@ void UFSMComponent::DeferredInit()
 		}
 		return BB->GetValueAsBool(BBKeys::bLootDone);
 	};
-	//if there is more than one way of transitioning From one state to Another first one would
-	//have higher priority
+
 	AddTransition(WanderToLoot);  
 	AddTransition(ToLootWander);  
 	
-	FFSMGlobalTransition ToCombat;
-	ToCombat.To = Combat->GetStateName();
-	ToCombat.Predicate = [](UBlackboardComponent * BB)
-	{
-		const FBlackboard::FKey KeyID = BB->GetKeyID(BBKeys::bThreatNearby);
-		if (KeyID == FBlackboard::InvalidKey)
-		{
-			UE_LOG(LogTemp, Error, TEXT("Blackboard key bThreatNearby does not exist"));
-			return false;
-		}
-		return BB->GetValueAsBool(BBKeys::bThreatNearby);
-	};
-	AddGlobalTransition(ToCombat);
-	
+
 	FFSMGlobalTransition ToSuicide;
 	ToSuicide.To = Suicide->GetStateName();
-	ToSuicide.Predicate = [](UBlackboardComponent * BB)
+	ToSuicide.Predicate = [](UBlackboardComponent* BB)
 	{
 		const FBlackboard::FKey KeyID = BB->GetKeyID(BBKeys::bShouldSuicide);
 		if (KeyID == FBlackboard::InvalidKey)
@@ -227,6 +213,70 @@ void UFSMComponent::DeferredInit()
 		return BB->GetValueAsBool(BBKeys::bShouldSuicide);
 	};
 	AddGlobalTransition(ToSuicide);
+
+	FFSMGlobalTransition ToFlee;
+	ToFlee.To = Flee->GetStateName();
+	ToFlee.Predicate = [](UBlackboardComponent* BB)
+	{
+		// Suicide outranks Flee — if we're queued to die, don't run.
+		const FBlackboard::FKey SuicideKey = BB->GetKeyID(BBKeys::bShouldSuicide);
+		if (SuicideKey != FBlackboard::InvalidKey &&
+			BB->GetValueAsBool(BBKeys::bShouldSuicide))
+		{
+			return false;
+		}
+
+		const FBlackboard::FKey KeyID = BB->GetKeyID(BBKeys::bPurgeZoneNearby);
+		if (KeyID == FBlackboard::InvalidKey)
+		{
+			UE_LOG(LogTemp, Error, TEXT("Blackboard key bPurgeZoneNearby does not exist"));
+			return false;
+		}
+		return BB->GetValueAsBool(BBKeys::bPurgeZoneNearby);
+	};
+	AddGlobalTransition(ToFlee);
+
+	FFSMGlobalTransition ToCombat;
+	ToCombat.To = Combat->GetStateName();
+	ToCombat.Predicate = [](UBlackboardComponent * BB)
+	{
+		// Combat is gated by BOTH higher-priority signals.
+		const FBlackboard::FKey SuicideKey = BB->GetKeyID(BBKeys::bShouldSuicide);
+		if (SuicideKey != FBlackboard::InvalidKey &&
+			BB->GetValueAsBool(BBKeys::bShouldSuicide))
+		{
+			return false;
+		}
+		const FBlackboard::FKey FleeKey = BB->GetKeyID(BBKeys::bPurgeZoneNearby);
+		if (FleeKey != FBlackboard::InvalidKey &&
+			BB->GetValueAsBool(BBKeys::bPurgeZoneNearby))
+		{
+			return false;
+		}
+
+		const FBlackboard::FKey KeyID = BB->GetKeyID(BBKeys::bThreatNearby);
+		if (KeyID == FBlackboard::InvalidKey)
+		{
+			UE_LOG(LogTemp, Error, TEXT("Blackboard key bThreatNearby does not exist"));
+			return false;
+		}
+		return BB->GetValueAsBool(BBKeys::bThreatNearby);
+	};
+	AddGlobalTransition(ToCombat);
+
+	// Flee→Wander when the perceptor reports the zone is no longer close.
+	// Per-state (not global) so it only fires while Flee is active.
+	FFSMTransition FleeToWander;
+	FleeToWander.From      = Flee->GetStateName();
+	FleeToWander.To        = Wander->GetStateName();
+	FleeToWander.Predicate = [](UBlackboardComponent* BB)
+	{
+		const FBlackboard::FKey KeyID = BB->GetKeyID(BBKeys::bPurgeZoneNearby);
+		if (KeyID == FBlackboard::InvalidKey) return false;
+		// Out of Flee the moment the zone is no longer flagged.
+		return !BB->GetValueAsBool(BBKeys::bPurgeZoneNearby);
+	};
+	AddTransition(FleeToWander);
 	
 	FFSMTransition CombatToWander;
 	CombatToWander.From      = Combat->GetStateName();

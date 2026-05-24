@@ -20,6 +20,12 @@ namespace BBKeys
 	inline const FName bThreatNearby  (TEXT("bThreatNearby"));
 	inline const FName bThreatGone    (TEXT("bThreatGone"));
 	inline const FName bShouldSuicide    (TEXT("bShouldSuicide"));
+
+	// Perceptor polls all APurgeZone actors each tick and sets this true if
+	// any zone's danger radius (Diameter/2 + buffer) overlaps the survivor.
+	// The FSM's →Flee global transition reads this. Higher priority than
+	// →Combat so a survivor never picks a fight inside a purge zone.
+	inline const FName bPurgeZoneNearby  (TEXT("bPurgeZoneNearby"));
 	
 	
 	

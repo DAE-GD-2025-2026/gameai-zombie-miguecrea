@@ -47,7 +47,19 @@ void UCombatState::OnInit()
 void UCombatState::OnEnter_Implementation(AActor* Owner)
 {
 	UE_LOG(LogTemp, Warning, TEXT("UCombat State OnEnter"));
-
+	
+	if (ABaseItem * Item = Cast<ABaseItem>(FSM->Blackboard->GetValueAsObject(BBKeys::bItem)))
+	{
+		FInterestPoint Probe;
+		Probe.Actor = Item;
+		auto Index  = Memory->m_WannaPointsInBrain.Find(Probe);
+		
+		bool Exists = Memory->m_WannaPointsInBrain.IsValidIndex(Index);
+		if (Exists)
+		{
+			Memory->m_WannaPointsInBrain[Index].m_Visited = false;
+		}
+	}
 	if (FSM.IsValid() && FSM->Blackboard.IsValid())
 	{
 		FSM->Blackboard->SetValueAsBool(BBKeys::bThreatGone, false);

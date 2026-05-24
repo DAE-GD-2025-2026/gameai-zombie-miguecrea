@@ -65,6 +65,7 @@ void ULootState::OnEnter_Implementation(AActor* Owner)
 	}
 	if (!WillIGrabThisItem(Item))
 	{
+		FSM->Blackboard->SetValueAsObject(BBKeys::bItem,nullptr);
 		ResumeWandering();
 		return;
 	}
@@ -338,6 +339,8 @@ void ULootState::GrabItem(int Slot)
 	}
 
 	Inventory->GrabItem(Slot, Item);
+	
+	 FSM->Blackboard->SetValueAsObject(BBKeys::bItem,nullptr);
 
 	// Forget the interest point for this item — FInterestPoint::operator==
 	// matches by Actor, so a probe with only the Actor field set is enough.

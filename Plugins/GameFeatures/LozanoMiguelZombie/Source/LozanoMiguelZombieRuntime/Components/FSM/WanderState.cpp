@@ -47,7 +47,7 @@ void UWanderState::VisualizeWanderPoints()
 		const float Radius = RadiusStep * RingNumber;
 		DRAW_CIRCLE(GetWorld(), FVector{}, Radius, FColor::Blue, 3.f);
 	}
-	for (const auto& Point : PatrolPoints)
+	for (const auto & Point : PatrolPoints)
 	{
 		const FColor DrawColor = Point.bVisited ? FColor::Green : FColor::Red;
 		DRAW_CIRCLE(GetWorld(), Point.Location, 40.f, DrawColor, 3.f);
@@ -225,6 +225,7 @@ void UWanderState::BuildPatrolGrid()
 
 		for (int32 i = 0; i < PointsThisRing; ++i)
 		{
+			
 			const float AngleRad = Step * i * DegToRad;
 			const FVector Offset(
 				FMath::Cos(AngleRad) * Radius,

@@ -22,6 +22,7 @@
 #include "Perception/AIPerceptionStimuliSourceComponent.h"
 #include "EngineUtils.h" // TActorIterator
 #include "Kismet/GameplayStatics.h"
+#include "PurgeZones/PurgeZone.h"
 
 
 UStudentPerceptor::UStudentPerceptor()
@@ -83,6 +84,7 @@ void UStudentPerceptor::TickComponent(float DeltaTime, ELevelTick TickType,
 
 
 	AddZombiesToMemory();
+	UpdatePurgeZoneFlag();
 
 	if (m_Stamina)
 	{
@@ -161,7 +163,7 @@ void UStudentPerceptor::OnTargetForgotten(AActor* Actor)
 }
 
 
-FInterestPoint* UStudentPerceptor::GetBestInterestPoint()
+FInterestPoint * UStudentPerceptor::GetBestInterestPoint()
 {
 	FInterestPoint* BestInterestPoint = nullptr;
 
@@ -172,12 +174,12 @@ FInterestPoint* UStudentPerceptor::GetBestInterestPoint()
 	const FVector MyLoc = OwnerActor ? OwnerActor->GetActorLocation() : FVector::ZeroVector;
 
 	float BestScore = 0.f;
-	for (FInterestPoint& InterestPoint : m_WannaPointsInBrain)
+	for (FInterestPoint & InterestPoint : m_WannaPointsInBrain)
 	{
 		if (InterestPoint.m_Visited)
 			continue;
 
-		AActor* Target = InterestPoint.Actor.Get();
+		AActor * Target = InterestPoint.Actor.Get();
 		if (!Target)
 			continue;
 
@@ -187,7 +189,7 @@ FInterestPoint* UStudentPerceptor::GetBestInterestPoint()
 		{
 			Score = GetHouseBaseUtility();
 		}
-		else if (ABaseItem* Item = Cast<ABaseItem>(Target))
+		else if (ABaseItem * Item = Cast<ABaseItem>(Target))
 		{
 			const EItemType ItemType = Item->GetItemType();
 			Score = GetItemBaseUtility(ItemType);
@@ -456,6 +458,54 @@ void UStudentPerceptor::Suicide()
 		UE_LOG(LogTemp, Warning, TEXT("Suiciding"))
 		BB->SetValueAsBool(BBKeys::bShouldSuicide, true);
 	}
+}
+
+void UStudentPerceptor::UpdatePurgeZoneFlag()
+{
+	UBlackboardComponent* BB = GetBlackboard();
+	if (!BB) return;
+
+	UWorld* W = GetWorld();
+	AActor* OwnerActor = GetOwner();
+	if (!W || !OwnerActor)
+	{
+		BB->SetValueAsBool(BBKeys::bPurgeZoneNearby, false);
+		return;
+	}
+
+	const FVector MyLoc = OwnerActor->GetActorLocation();
+
+	// Hysteresis: if we're already flagged as in-danger, require the larger
+	// exit-buffer before clearing. If we're not flagged, the smaller
+	// enter-buffer triggers the flag. The gap between them is what stops
+	// Flee↔Wander bouncing at the boundary.
+	const bool bWasInDanger = BB->GetValueAsBool(BBKeys::bPurgeZoneNearby);
+	const float ActiveBuffer = bWasInDanger ? PurgeZoneExitBuffer : PurgeZoneEnterBuffer;
+
+	bool bAnyInRange = false;
+	for (TActorIterator<APurgeZone> It(W); It; ++It)
+	{
+		APurgeZone* Z = *It;
+		if (!IsValid(Z)) continue;
+
+		// Diameter is protected on APurgeZone — read via reflection.
+		float Diameter = 0.f;
+		if (const FFloatProperty* DiamProp =
+			FindFProperty<FFloatProperty>(Z->GetClass(), TEXT("Diameter")))
+		{
+			Diameter = DiamProp->GetPropertyValue_InContainer(Z);
+		}
+
+		const float DangerRadius = Diameter * 0.5f + ActiveBuffer;
+		const float DistSq       = FVector::DistSquared(MyLoc, Z->GetActorLocation());
+		if (DistSq <= DangerRadius * DangerRadius)
+		{
+			bAnyInRange = true;
+			break;  // one is enough
+		}
+	}
+
+	BB->SetValueAsBool(BBKeys::bPurgeZoneNearby, bAnyInRange);
 }
 
 void UStudentPerceptor::AddZombiesToMemory()
