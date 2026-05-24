@@ -9,6 +9,11 @@
 #include "Sound/SoundBase.h"
 #include "TimerManager.h"
 #include "StateBase.h"
+#include "WanderState.h"
+#include "LootState.h"
+#include "CombatState.h"
+#include "FleeState.h"
+#include "SuicideState.h"
 #include "../Movement/SteeringComponent.h"
 #include "../StudentPerceptor/StudentPerceptor.h"
 #include "LozanoMiguelZombieRuntime/Components/BlackBoard/BBKeys.h"
@@ -85,12 +90,12 @@ void UFSMComponent::StartAmbientMusicOnce()
 	m_AmbientMusicAC = UGameplayStatics::SpawnSound2D(
 		W,
 		m_AmbientMusic,
-		/*Volume*/ 0.7f,
-		/*Pitch*/  1.0f,
-		/*Start*/  0.0f,
-		/*Attenuation*/ nullptr,
-		/*bPersistAcrossLevelTransition*/ false,
-		/*bAutoDestroy*/ false);
+		 0.7f,
+		 1.0f,
+	  0.0f,
+		 nullptr,
+		 false,
+		 false);
 
 	if (!m_AmbientMusicAC)
 	{
@@ -109,8 +114,6 @@ void UFSMComponent::StartAmbientMusicOnce()
 
 void UFSMComponent::OnAmbientMusicFinished()
 {
-	// Manual loop — restart the same audio component. Cheaper than spawning
-	// a new one and keeps the bound delegate alive for the next iteration.
 	if (m_AmbientMusicAC && IsValid(m_AmbientMusicAC))
 	{
 		m_AmbientMusicAC->Play();
@@ -124,7 +127,6 @@ void UFSMComponent::DeferredInit()
 	
 		Blackboard = ResolveBlackboard();
 	
-	// Sanity-check the sibling we care about — should be present now.
 	USteeringComponent * Steering = Owner->FindComponentByClass<USteeringComponent>();
 	if (!Steering)
 	{
@@ -138,11 +140,6 @@ void UFSMComponent::DeferredInit()
 	if (memory)
 	{
 		PrimaryComponentTick.AddPrerequisite(memory, memory->PrimaryComponentTick);
-
-		// Subscribe to the reactive needs delegates. Non-dynamic multicast,
-		// so we bind with AddUObject (NOT AddDynamic, which would require
-		// UFUNCTION on the handlers). These are general "use a consumable"
-		// reactions that aren't tied to any specific state.
 		memory->m_StaminaLow.AddUObject(this, &UFSMComponent::HandleStaminaLow);
 		memory->m_HealthLow .AddUObject(this, &UFSMComponent::HandleHealthLow);
 	}
@@ -198,14 +195,10 @@ void UFSMComponent::DeferredInit()
 		}
 		return BB->GetValueAsBool(BBKeys::bLootDone);
 	};
-	
-	
-	
 	//if there is more than one way of transitioning From one state to Another first one would
 	//have higher priority
-	AddTransition(WanderToLoot);  //
-	AddTransition(ToLootWander);  //
-
+	AddTransition(WanderToLoot);  
+	AddTransition(ToLootWander);  
 	
 	FFSMGlobalTransition ToCombat;
 	ToCombat.To = Combat->GetStateName();
@@ -249,7 +242,6 @@ void UFSMComponent::DeferredInit()
 		return BB->GetValueAsBool(BBKeys::bThreatGone);
 	};
 	AddTransition(CombatToWander);
-	////////////////////////////////
 	
 	if (InitialState.IsNone())
 		InitialState = Wander->GetStateName();
@@ -265,21 +257,6 @@ void UFSMComponent::DeferredInit()
 	TransitionTo(InitialState);
 }
 
-void UFSMComponent::TestFunctionStateMachine()
-{
-	
-	
-	// UE_LOG(LogTemp,Warning,TEXT("TestFunctionStateMachine"));
-	// if (Blackboard.Get())
-	// {
-	// Blackboard->SetValueAsBool(TEXT("bTargetVisible"),true);
-	// }
-	// else
-	// {
-	// 	UE_LOG(LogTemp,Error,TEXT("Blackboard Is Null"));
-	// }
-}
-
 void UFSMComponent::TickComponent(float DeltaTime, ELevelTick TickType,
                                   FActorComponentTickFunction* ThisTickFunction)
 {
@@ -291,15 +268,11 @@ void UFSMComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 	AActor * Owner = GetOwner();
 	UBlackboardComponent * BB = Blackboard.Get();
 
-	// 1) Global interrupts — evaluated first so a threat sighting preempts
-	//    whatever per-state transition would otherwise fire this frame.
+
 	if (BB)
 	{
 		for (const FFSMGlobalTransition & G : GlobalTransitions)
 		{
-			// Skip self-loops so "->Combat" doesn't keep re-firing while
-			// we're already in Combat (the predicate stays true until the
-			// threat goes away).
 			if (G.To == CurrentStateName) continue;
 			if (G.Predicate && G.Predicate(BB))
 			{
@@ -325,7 +298,7 @@ void UFSMComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 void UFSMComponent::RegisterState(FName Name, UStateBase* State)
 {
 	if (!State) return;
-	State->Init(this); // hand the state a back-ref so it can reach siblings
+	State->Init(this); 
 	States.Add(Name, State);
 }
 
@@ -346,9 +319,6 @@ void UFSMComponent::ForceTransition(FName To)
 
 namespace
 {
-	// Find the first inventory slot containing an item of DesiredType and
-	// call UseItem on it. Returns true on success.
-	// Static-local because nothing outside this file needs this helper.
 	bool UseFirstItemOfType(UInventoryComponent * Inv, EItemType DesiredType)
 	{
 		if (!Inv) return false;
@@ -357,16 +327,13 @@ namespace
 		{
 			if (Slots[i] && Slots[i]->GetItemType() == DesiredType)
 			{
-				if (Slots[i]->GetValue() > 0)
+				bool result = Inv->UseItem(i);
+				if (Slots[i]->GetValue() <=0)
 				{
-					
-				return Inv->UseItem(i);
-					
-				}
-				else
-				{
+					//if after using Item values is 0 remove it 
 					Inv->RemoveItem(i);
 				}
+				return result;
 			}
 		}
 		return false;
@@ -375,9 +342,7 @@ namespace
 
 void UFSMComponent::HandleStaminaLow()
 {
-	// Reactive: eat the first food in the inventory the moment stamina
-	// drops below the perceptor's threshold. State-agnostic — runs even
-	// while in Combat or Loot.
+	
 	AActor* Owner = GetOwner();
 	UInventoryComponent* Inv = Owner ? Owner->FindComponentByClass<UInventoryComponent>() : nullptr;
 	const bool bUsed = UseFirstItemOfType(Inv, EItemType::Food);

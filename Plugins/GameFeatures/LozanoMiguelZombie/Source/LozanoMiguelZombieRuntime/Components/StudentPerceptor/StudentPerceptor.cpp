@@ -94,7 +94,7 @@ void UStudentPerceptor::TickComponent(float DeltaTime, ELevelTick TickType,
 		}
 		else if (m_bWasStaminaLow && S >= StaminaLowExit)
 		{
-			m_bWasStaminaLow = false; // silent re-arm
+			m_bWasStaminaLow = false; 
 		}
 	}
 

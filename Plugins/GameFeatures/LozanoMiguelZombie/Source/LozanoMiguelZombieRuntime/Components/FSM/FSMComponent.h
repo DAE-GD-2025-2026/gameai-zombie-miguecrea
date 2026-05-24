@@ -93,19 +93,11 @@ private:
 
 
 	void DeferredInit();
-	void TestFunctionStateMachine();
 
-	// Reactive "use a consumable" handlers. Bound to the perceptor's
-	// m_StaminaLow / m_HealthLow non-dynamic multicast delegates in
-	// DeferredInit. State-agnostic — fires regardless of whether we're
-	// in Wander, Combat, Loot, etc.
+
 	void HandleStaminaLow();
 	void HandleHealthLow();
-
-	// Background music: load once, play 2D, manually loop via OnAudioFinished.
-	// Tracks the *live* AudioComponent so PIE restarts re-start music cleanly
-	// (a process-level bool would stay true between PIE sessions and lock us
-	// out — TWeakObjectPtr invalidates when the AC is destroyed).
+	
 	static TWeakObjectPtr<class UAudioComponent> s_LiveAmbientMusicAC;
 
 	void StartAmbientMusicOnce();
