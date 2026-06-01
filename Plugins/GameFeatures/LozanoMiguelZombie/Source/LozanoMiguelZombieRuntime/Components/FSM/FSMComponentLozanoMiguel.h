@@ -2,14 +2,14 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
-#include "StateBase.h"
-#include "FSMComponent.generated.h"
+#include "StateBaseLozanoMiguel.h"
+#include "FSMComponentLozanoMiguel.generated.h"
 
 class UBlackboardComponent;
 
 
 USTRUCT()
-struct FFSMTransition
+struct FFSMTransitionLozanoMiguel
 {
 	GENERATED_BODY()
 	FName From;
@@ -17,16 +17,8 @@ struct FFSMTransition
 	TFunction<bool(UBlackboardComponent*)> Predicate;
 };
 
-// Any-state interrupt: fires from whatever state the FSM happens to be in.
-// Evaluated before per-state transitions every tick, so a global transition
-// to Combat takes precedence over, e.g., a Loot->Wander transition that
-// would otherwise fire the same frame.
-//
-// Self-loops are filtered automatically (the FSM checks CurrentStateName
-// against To and skips if they match), so a "to Combat" global transition
-// doesn't keep re-firing while we're already in Combat.
 USTRUCT()
-struct FFSMGlobalTransition
+struct FFSMGlobalTransitionLozanoMiguel
 {
 	GENERATED_BODY()
 	FName To;
@@ -34,44 +26,40 @@ struct FFSMGlobalTransition
 };
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
-class LOZANOMIGUELZOMBIERUNTIME_API UFSMComponent : public UActorComponent
+class LOZANOMIGUELZOMBIERUNTIME_API UFSMComponentLozanoMiguel : public UActorComponent
 {
 	GENERATED_BODY()
 public:
-	UFSMComponent();
-	
+	UFSMComponentLozanoMiguel();
+
 	UPROPERTY()
-	TMap<FName, TObjectPtr<UStateBase>> States;
+	TMap<FName, TObjectPtr<UStateBaseLozanoMiguel>> States;
 
 	UPROPERTY(EditAnywhere, Category="FSM")
 	FName InitialState;
 
-	TArray<FFSMTransition> Transitions;
+	TArray<FFSMTransitionLozanoMiguel> Transitions;
 
-	// Interrupts that can fire from any current state (e.g. ->Combat when
-	// a threat is spotted). Checked before Transitions in TickComponent.
-	TArray<FFSMGlobalTransition> GlobalTransitions;
+	TArray<FFSMGlobalTransitionLozanoMiguel> GlobalTransitions;
 
 	UPROPERTY(EditAnywhere, Category="FSM|Debug")
 	bool bLogTransitions = true;
 
-protected: 
-	  void InitializeComponent() override;
-	
+protected:
+	void InitializeComponent() override;
+
 	virtual void BeginPlay() override;
-	
+
 
 public:
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType,
 	                           FActorComponentTickFunction* ThisTickFunction) override;
 
-	void RegisterState(FName Name, UStateBase * State);
+	void RegisterState(FName Name, UStateBaseLozanoMiguel * State);
 
-	void AddTransition(const FFSMTransition & Transition);
+	void AddTransition(const FFSMTransitionLozanoMiguel & Transition);
 
-	// Register an any-state interrupt. Multiple globals may exist; they're
-	// evaluated in insertion order each tick, first match wins.
-	void AddGlobalTransition(const FFSMGlobalTransition & Transition);
+	void AddGlobalTransition(const FFSMGlobalTransitionLozanoMiguel & Transition);
 
 	UFUNCTION(BlueprintCallable, Category="FSM")
 	void ForceTransition(FName To);
@@ -84,11 +72,11 @@ public:
 
 	TWeakObjectPtr<UBlackboardComponent> Blackboard;
 private:
-	TObjectPtr<UStateBase>               CurrentState;
+	TObjectPtr<UStateBaseLozanoMiguel>   CurrentState;
 	FName                                CurrentStateName;
 
 	UBlackboardComponent * ResolveBlackboard() const;
-	bool EvaluateTransition(const FFSMTransition & T, UBlackboardComponent* BB) const;
+	bool EvaluateTransition(const FFSMTransitionLozanoMiguel & T, UBlackboardComponent* BB) const;
 	void TransitionTo(FName To);
 
 
@@ -97,7 +85,7 @@ private:
 
 	void HandleStaminaLow();
 	void HandleHealthLow();
-	
+
 	static TWeakObjectPtr<class UAudioComponent> s_LiveAmbientMusicAC;
 
 	void StartAmbientMusicOnce();

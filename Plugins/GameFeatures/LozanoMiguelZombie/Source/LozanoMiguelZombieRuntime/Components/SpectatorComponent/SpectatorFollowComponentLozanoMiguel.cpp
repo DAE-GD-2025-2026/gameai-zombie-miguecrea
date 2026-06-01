@@ -1,32 +1,32 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "SpectatorFollowComponent.h"
+#include "SpectatorFollowComponentLozanoMiguel.h"
 #include "TimerManager.h"
 
 
-USpectatorFollowComponent::USpectatorFollowComponent()
+USpectatorFollowComponentLozanoMiguel::USpectatorFollowComponentLozanoMiguel()
 {
 	PrimaryComponentTick.bCanEverTick = true;
 }
 
 
 // Called when the game starts
-void USpectatorFollowComponent::BeginPlay()
-{ 
+void USpectatorFollowComponentLozanoMiguel::BeginPlay()
+{
 	Super::BeginPlay();
 	m_Owner = GetOwner();
 	FTimerHandle TimerHandle;
 	GetWorld()->GetTimerManager().SetTimer(
 		TimerHandle,
 		this,
-		&USpectatorFollowComponent::CheckParent,
+		&USpectatorFollowComponentLozanoMiguel::CheckParent,
 		0.1f,
 		false
 	);
 }
 
-void USpectatorFollowComponent::CheckParent()
+void USpectatorFollowComponentLozanoMiguel::CheckParent()
 {
 	if (m_Owner)
 	{
@@ -41,7 +41,7 @@ void USpectatorFollowComponent::CheckParent()
 }
 
 
-void USpectatorFollowComponent::TickComponent(float DeltaTime, ELevelTick TickType,
+void USpectatorFollowComponentLozanoMiguel::TickComponent(float DeltaTime, ELevelTick TickType,
                                               FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
@@ -59,7 +59,7 @@ void USpectatorFollowComponent::TickComponent(float DeltaTime, ELevelTick TickTy
 }
 
 
-//FOR TIME LINE 
+//FOR TIME LINE
 // Header
 // UPROPERTY(EditAnywhere) UCurveFloat* MoveCurve;
 // FTimeline MoveTimeline;

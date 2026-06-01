@@ -1,49 +1,49 @@
-#include "WanderState.h"
+#include "WanderStateLozanoMiguel.h"
 
-#include "FSMComponent.h"
+#include "FSMComponentLozanoMiguel.h"
 #include "AIController.h"
 #include "BehaviorTree/BlackboardComponent.h"
 #include "GameFramework/Pawn.h"
 
-#include "../Movement/SteeringComponent.h"
-#include "../BlackBoard/BBKeys.h"
+#include "../Movement/SteeringComponentLozanoMiguel.h"
+#include "../BlackBoard/BBKeysLozanoMiguel.h"
 #include "../MACROS/DebugMacro.h"
-#include "../StudentPerceptor/StudentPerceptor.h"
+#include "../StudentPerceptor/StudentPerceptorLozanoMiguel.h"
 #include "Village/House/House.h"
 
 
-UWanderState::UWanderState()
-	: UStateBase()
+UWanderStateLozanoMiguel::UWanderStateLozanoMiguel()
+	: UStateBaseLozanoMiguel()
 {
-	DestinationKey = BBKeys::CurrentDestination;
+	DestinationKey = BBKeysLozanoMiguel::CurrentDestination;
 }
 
-void UWanderState::OnInit()
+void UWanderStateLozanoMiguel::OnInit()
 {
-
-	Memory   = GetSibling<UStudentPerceptor>();
-	Steering = GetSibling<USteeringComponent>();
+	Memory   = GetSibling<UStudentPerceptorLozanoMiguel>();
+	Steering = GetSibling<USteeringComponentLozanoMiguel>();
 	BuildPatrolGrid();
 }
 
-void UWanderState::OnEnter_Implementation(AActor* Owner)
+void UWanderStateLozanoMiguel::OnEnter_Implementation(AActor* Owner)
 {
 	UE_LOG(LogTemp, Warning, TEXT(" Wander State Entered"))
 
 
-	FSM->Blackboard->SetValueAsBool(BBKeys::bThreatGone,   false);
-	FSM->Blackboard->SetValueAsBool(BBKeys::bThreatNearby, false);
-	FSM->Blackboard->SetValueAsBool(BBKeys::bLootDone,     false);
+	FSM->Blackboard->SetValueAsBool(BBKeysLozanoMiguel::bThreatGone,   false);
+	FSM->Blackboard->SetValueAsBool(BBKeysLozanoMiguel::bThreatNearby, false);
+	FSM->Blackboard->SetValueAsBool(BBKeysLozanoMiguel::bLootDone,     false);
 
 	Steering->SetRotate(true);
-	Steering->OnMoveCompleted.AddDynamic(this, &UWanderState::HandleArrived);
+	Steering->OnMoveCompleted.AddDynamic(this, &UWanderStateLozanoMiguel::HandleArrived);
 	PickNewTarget(Owner);
 }
 
-void UWanderState::VisualizeWanderPoints()
+void UWanderStateLozanoMiguel::VisualizeWanderPoints()
 {
 	for (int32 RingNumber = 1; RingNumber <= MaxRings; ++RingNumber)
 	{
+		if (RingNumber == 2  || RingNumber == 3) continue;
 		const float Radius = RadiusStep * RingNumber;
 		DRAW_CIRCLE(GetWorld(), FVector{}, Radius, FColor::Blue, 3.f);
 	}
@@ -54,14 +54,12 @@ void UWanderState::VisualizeWanderPoints()
 	}
 }
 
-void UWanderState::OnTick_Implementation(float DeltaTime, AActor* Owner)
+void UWanderStateLozanoMiguel::OnTick_Implementation(float DeltaTime, AActor* Owner)
 {
 	if (!Owner) return;
 
 	VisualizeWanderPoints();
 
-	// Periodic re-evaluation: even mid-walk, change our mind if a better
-	// memory target appeared (e.g., a perceived item).
 	RepickTimer += DeltaTime;
 	if (RepickTimer >= ChangeMindTime)
 	{
@@ -70,15 +68,15 @@ void UWanderState::OnTick_Implementation(float DeltaTime, AActor* Owner)
 	}
 }
 
-void UWanderState::OnExit_Implementation(AActor* Owner)
+void UWanderStateLozanoMiguel::OnExit_Implementation(AActor* Owner)
 {
 	m_GoingToPatrolPoint = false;
 	Steering->SetRotate(false);
-	Steering->OnMoveCompleted.RemoveDynamic(this, &UWanderState::HandleArrived);
+	Steering->OnMoveCompleted.RemoveDynamic(this, &UWanderStateLozanoMiguel::HandleArrived);
 }
 
 
-void UWanderState::HandleArrived(EPathFollowingResult::Type WhatHappened)
+void UWanderStateLozanoMiguel::HandleArrived(EPathFollowingResult::Type WhatHappened)
 {
 	switch (WhatHappened)
 	{
@@ -98,36 +96,32 @@ void UWanderState::HandleArrived(EPathFollowingResult::Type WhatHappened)
 
 	if (WhatHappened != EPathFollowingResult::Type::Success) return;
 
-	// Resolve the actor we were chasing — weak ptr is safe across the
-	// perceptor's TArray reallocations, unlike the old FInterestPoint*.
 	AActor* InterestActor = m_BestInterestActor.Get();
 
 	switch (m_ReasonToMove)
 	{
-	case EReasonToMove::Loot:
+	case EReasonToMoveLozanoMiguel::Loot:
 		UE_LOG(LogTemp, Warning, TEXT(" Arrived to Loot "));
-		FSM->Blackboard.Get()->SetValueAsBool(BBKeys::bArrivedAtInterestPoint, true);
+		FSM->Blackboard.Get()->SetValueAsBool(BBKeysLozanoMiguel::bArrivedAtInterestPoint, true);
 		if (InterestActor)
 		{
-			FSM->Blackboard.Get()->SetValueAsObject(BBKeys::bItem, InterestActor);
+			FSM->Blackboard.Get()->SetValueAsObject(BBKeysLozanoMiguel::bItem, InterestActor);
 		}
 		break;
 
-	case EReasonToMove::Explore:
+	case EReasonToMoveLozanoMiguel::Explore:
 		UE_LOG(LogTemp, Warning, TEXT("Explored"));
 		AdvancePatrol();
 		m_GoingToPatrolPoint = false;
 		break;
 
-	case EReasonToMove::VisitHouse:
+	case EReasonToMoveLozanoMiguel::VisitHouse:
 		UE_LOG(LogTemp, Warning, TEXT("Arrived To House "));
 		break;
 	default:
 		break;
 	}
 
-	// Look the InterestPoint up by actor identity and flip m_Visited.
-	// Helper on Memory hides the TArray walk and never hands us a raw ptr.
 	if (InterestActor && Memory.IsValid())
 	{
 		Memory->MarkVisited(InterestActor);
@@ -137,7 +131,7 @@ void UWanderState::HandleArrived(EPathFollowingResult::Type WhatHappened)
 
 // ---- Target picking ---------------------------------------------------------
 
-void UWanderState::GoToPatrolPoint()
+void UWanderStateLozanoMiguel::GoToPatrolPoint()
 {
 	if (PatrolPoints.IsValidIndex(CurrentPatrolIdx))
 	{
@@ -145,7 +139,7 @@ void UWanderState::GoToPatrolPoint()
 		if (Steering.IsValid())
 		{
 			Steering->Move(CurrentDestination);
-			m_ReasonToMove = EReasonToMove::Explore;
+			m_ReasonToMove = EReasonToMoveLozanoMiguel::Explore;
 		}
 		else
 		{
@@ -154,33 +148,27 @@ void UWanderState::GoToPatrolPoint()
 	}
 }
 
-void UWanderState::PickNewTarget(AActor* Owner)
+void UWanderStateLozanoMiguel::PickNewTarget(AActor* Owner)
 {
 	if (!Owner) return;
 	if (!Memory.Get()) return;
 
-	// IMPORTANT: GetBestInterestPoint returns a pointer INTO the perceptor's
-	// TArray. Use it immediately to grab the actor — never store the
-	// FInterestPoint* itself, because the next AddUnique could reallocate
-	// the array and dangle the pointer.
 	m_BestInterestActor.Reset();
-	FInterestPoint* IP = Memory->GetBestInterestPoint();
+	FInterestPointLozanoMiguel* IP = Memory->GetBestInterestPoint();
 
 	if (IP)
 	{
 		AActor* InterestActor = IP->Actor.Get();
-		// Capture the actor in our long-lived weak ptr. IP is no longer
-		// used past this point — safe even if the array reallocates next.
 		m_BestInterestActor = InterestActor;
 
 		m_GoingToPatrolPoint = false;
 		if (Cast<AHouse>(InterestActor))
 		{
-			m_ReasonToMove = EReasonToMove::VisitHouse;
+			m_ReasonToMove = EReasonToMoveLozanoMiguel::VisitHouse;
 		}
 		else
 		{
-			m_ReasonToMove = EReasonToMove::Loot;
+			m_ReasonToMove = EReasonToMoveLozanoMiguel::Loot;
 		}
 		if (InterestActor)
 		{
@@ -194,7 +182,7 @@ void UWanderState::PickNewTarget(AActor* Owner)
 	}
 }
 
-void UWanderState::AdvancePatrol()
+void UWanderStateLozanoMiguel::AdvancePatrol()
 {
 	if (!PatrolPoints.IsValidIndex(CurrentPatrolIdx)) return;
 
@@ -202,7 +190,6 @@ void UWanderState::AdvancePatrol()
 
 	if (CurrentPatrolIdx == PatrolPoints.Num() - 1)
 	{
-		// End of the list — flip direction and start over with a fresh sweep.
 		Algo::Reverse(PatrolPoints);
 		for (FPatrolPoint& P : PatrolPoints) P.bVisited = false;
 		CurrentPatrolIdx = 0;
@@ -214,7 +201,7 @@ void UWanderState::AdvancePatrol()
 	}
 }
 
-void UWanderState::WriteDestinationToBlackboard(const FVector& Destination) const
+void UWanderStateLozanoMiguel::WriteDestinationToBlackboard(const FVector& Destination) const
 {
 	if (!FSM.IsValid()) return;
 
@@ -231,7 +218,7 @@ void UWanderState::WriteDestinationToBlackboard(const FVector& Destination) cons
 	}
 }
 
-void UWanderState::BuildPatrolGrid()
+void UWanderStateLozanoMiguel::BuildPatrolGrid()
 {
 	PatrolPoints.Reset();
 
@@ -240,12 +227,12 @@ void UWanderState::BuildPatrolGrid()
 
 	for (int32 Ring = 1; Ring <= MaxRings; ++Ring)
 	{
+		if (Ring == 2 || Ring == 3) continue;
 		const float Step   = 360.f / PointsThisRing;
 		const float Radius = RadiusStep * Ring;
 
 		for (int32 i = 0; i < PointsThisRing; ++i)
 		{
-			
 			const float AngleRad = Step * i * DegToRad;
 			const FVector Offset(
 				FMath::Cos(AngleRad) * Radius,

@@ -1,24 +1,24 @@
-#include "SuicideState.h"
+#include "SuicideStateLozanoMiguel.h"
 
-#include "FSMComponent.h"
+#include "FSMComponentLozanoMiguel.h"
 #include "BehaviorTree/BlackboardComponent.h"
 
-#include "../Movement/SteeringComponent.h"
-#include "../BlackBoard/BBKeys.h"
+#include "../Movement/SteeringComponentLozanoMiguel.h"
+#include "../BlackBoard/BBKeysLozanoMiguel.h"
 #include "../MACROS/DebugMacro.h"
 
 #include "Sound/SoundBase.h"
 #include "Kismet/GameplayStatics.h"
 
 
-USuicideState::USuicideState()
-	: UStateBase()
+USuicideStateLozanoMiguel::USuicideStateLozanoMiguel()
+	: UStateBaseLozanoMiguel()
 {
 }
 
-void USuicideState::OnInit()
+void USuicideStateLozanoMiguel::OnInit()
 {
-	SteeringComponent = GetSibling<USteeringComponent>();
+	SteeringComponent = GetSibling<USteeringComponentLozanoMiguel>();
 
 	static const TCHAR* ExplosionPath =
 		TEXT("/LozanoMiguelZombie/Sounds/ExplosionSound.ExplosionSound");
@@ -38,10 +38,10 @@ void USuicideState::OnInit()
 	}
 }
 
-void USuicideState::OnEnter_Implementation(AActor* Owner)
+void USuicideStateLozanoMiguel::OnEnter_Implementation(AActor* Owner)
 {
-	FSM->Blackboard->SetValueAsBool(BBKeys::bThreatNearby, false);
-	FSM->Blackboard->SetValueAsBool(BBKeys::bThreatGone,   false);
+	FSM->Blackboard->SetValueAsBool(BBKeysLozanoMiguel::bThreatNearby, false);
+	FSM->Blackboard->SetValueAsBool(BBKeysLozanoMiguel::bThreatGone,   false);
 	UE_LOG(LogTemp, Warning, TEXT("Suicide State OnEnter "));
 
 	if (SteeringComponent.IsValid())
@@ -60,10 +60,10 @@ void USuicideState::OnEnter_Implementation(AActor* Owner)
 
 	FTimerHandle ExplodeTimer;
 	GetWorld()->GetTimerManager().SetTimer(
-		ExplodeTimer, this, &USuicideState::Explode, 3.f, false);
+		ExplodeTimer, this, &USuicideStateLozanoMiguel::Explode, 3.f, false);
 }
 
-void USuicideState::OnTick_Implementation(float DeltaTime, AActor* Owner)
+void USuicideStateLozanoMiguel::OnTick_Implementation(float DeltaTime, AActor* Owner)
 {
 	if (m_UpdateRadius)
 	{
@@ -75,7 +75,7 @@ void USuicideState::OnTick_Implementation(float DeltaTime, AActor* Owner)
 	DRAW_CIRCLE(GetWorld(), Owner->GetActorLocation(), m_ExplosionRadius, FColor::Red, 3.f);
 }
 
-void USuicideState::Explode()
+void USuicideStateLozanoMiguel::Explode()
 {
 	if (m_ExplosionSound)
 	{
@@ -85,10 +85,10 @@ void USuicideState::Explode()
 
 	FTimerHandle KillPlayerTimer;
 	GetWorld()->GetTimerManager().SetTimer(
-		KillPlayerTimer, this, &USuicideState::KillPlayer, 0.4f, false);
+		KillPlayerTimer, this, &USuicideStateLozanoMiguel::KillPlayer, 0.4f, false);
 }
 
-void USuicideState::KillPlayer()
+void USuicideStateLozanoMiguel::KillPlayer()
 {
 	UGameplayStatics::ApplyRadialDamage(
 		GetWorld(),
@@ -102,6 +102,6 @@ void USuicideState::KillPlayer()
 		true);
 }
 
-void USuicideState::OnExit_Implementation(AActor* Owner)
+void USuicideStateLozanoMiguel::OnExit_Implementation(AActor* Owner)
 {
 }

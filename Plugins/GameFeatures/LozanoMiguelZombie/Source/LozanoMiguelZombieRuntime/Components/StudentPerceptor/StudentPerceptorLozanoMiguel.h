@@ -1,4 +1,4 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
+// Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
 
@@ -9,46 +9,46 @@
 #include "Perception/AISenseConfig_Damage.h"
 #include "Perception/AISense_Damage.h"
 #include "Items/ItemType.h"
-#include "../FSM/InterestPoint.h"
-#include "../FSM/ReasonToMove.h"
-#include "StudentPerceptor.generated.h"
+#include "../FSM/InterestPointLozanoMiguel.h"
+#include "../FSM/ReasonToMoveLozanoMiguel.h"
+#include "StudentPerceptorLozanoMiguel.generated.h"
 
 class ASurvivorPawn;
 class ABaseZombie;
 
 
-DECLARE_MULTICAST_DELEGATE(UStaminaLow);
-DECLARE_MULTICAST_DELEGATE(UHealthLow);
+DECLARE_MULTICAST_DELEGATE(UStaminaLowLozanoMiguel);
+DECLARE_MULTICAST_DELEGATE(UHealthLowLozanoMiguel);
 
 
 class UAIPerceptionComponent;
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
-class LOZANOMIGUELZOMBIERUNTIME_API UStudentPerceptor : public UActorComponent
+class LOZANOMIGUELZOMBIERUNTIME_API UStudentPerceptorLozanoMiguel : public UActorComponent
 {
 	GENERATED_BODY()
-	
-	
+
+
 private:
-	
-	 
+
+
 	UAIPerceptionComponent * m_PerceptionComponent;
 	ASurvivorPawn * m_SurvivorPawn = nullptr;
 public:
-	
-	UStaminaLow m_StaminaLow;
-	UHealthLow m_HealthLow;
-	UStudentPerceptor();
+
+	UStaminaLowLozanoMiguel m_StaminaLow;
+	UHealthLowLozanoMiguel m_HealthLow;
+	UStudentPerceptorLozanoMiguel();
 	virtual void BeginPlay() override;
 	void TickComponent(
 	float DeltaTime,
 	ELevelTick TickType,
 	FActorComponentTickFunction* ThisTickFunction) override;
-	
-	
-	
-	
+
+
+
+
 	float m_EnemyDetectionRadius = 250.f;
-	
+
 	UPROPERTY(EditDefaultsOnly, Category="Needs")
 	float StaminaLowEnter = 5.f;
 	UPROPERTY(EditDefaultsOnly, Category="Needs")
@@ -65,19 +65,19 @@ public:
 ///////
 	UFUNCTION()
 	virtual void OnPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus);
-	
+
 	UFUNCTION()
 	void OnTargetForgotten(AActor* Actor);
-	
+
 	void DeferredInit();
-	
-	FInterestPoint * GetBestInterestPoint();
+
+	FInterestPointLozanoMiguel * GetBestInterestPoint();
 
 	// Returns the closest unvisited Pistol/Shotgun in memory, or nullptr if
 	// none. "Closest" is straight-line distance from the owner's location —
 	// no navmesh cost. Use when the survivor needs to know where the
 	// nearest weapon is regardless of utility ordering.
-	FInterestPoint * GetClosestWeaponInMemory();
+	FInterestPointLozanoMiguel * GetClosestWeaponInMemory();
 
 	float GetItemBaseUtility(EItemType type);
 	float GetHouseBaseUtility();
@@ -97,17 +97,17 @@ public:
 	FColor PulsingColor1 = FColor::Blue;
 	FColor PulsingColor2 = FColor::Yellow;
 	FColor * CurrentColor =  &PulsingColor1;
-	
+
 	void ChangeColor();
-	
-	// I want to grab these Now 
-	TArray<FInterestPoint> m_WannaPointsInBrain;
+
+	// I want to grab these Now
+	TArray<FInterestPointLozanoMiguel> m_WannaPointsInBrain;
 
 	TArray<ABaseZombie*> GetVisibleZombies ();
 
 	class UBlackboardComponent * GetBlackboard() const;
 
-	void ForgetInterestPoints(const FInterestPoint& InterestPoint);
+	void ForgetInterestPoints(const FInterestPointLozanoMiguel& InterestPoint);
 
 	// Find the InterestPoint whose Actor matches and flip m_Visited to true.
 	// Lets callers mark "I consumed/visited this" without holding a raw
@@ -127,7 +127,7 @@ public:
 	float m_ZombieAuditTimer = 0.f;
 
 	void LogUnperceivedZombies() const;
-	
+
 	void Suicide();
 
 	void AddZombiesToMemory();

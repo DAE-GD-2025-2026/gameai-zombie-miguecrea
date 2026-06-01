@@ -4,17 +4,17 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
-#include "BlackBoard.generated.h"
+#include "BlackBoardLozanoMiguel.generated.h"
 
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
-class LOZANOMIGUELZOMBIERUNTIME_API UBlackBoard : public UActorComponent
+class LOZANOMIGUELZOMBIERUNTIME_API UBlackBoardLozanoMiguel : public UActorComponent
 {
 	GENERATED_BODY()
 
 public:
 	// Sets default values for this component's properties
-	UBlackBoard();
+	UBlackBoardLozanoMiguel();
 
 protected:
 	// Called when the game starts

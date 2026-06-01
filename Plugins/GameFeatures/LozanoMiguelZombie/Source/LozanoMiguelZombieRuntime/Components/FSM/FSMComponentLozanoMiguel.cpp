@@ -1,4 +1,4 @@
-#include "FSMComponent.h"
+#include "FSMComponentLozanoMiguel.h"
 
 #include "AIController.h"
 #include "BehaviorTree/BlackboardComponent.h"
@@ -8,35 +8,35 @@
 #include "Kismet/GameplayStatics.h"
 #include "Sound/SoundBase.h"
 #include "TimerManager.h"
-#include "StateBase.h"
-#include "WanderState.h"
-#include "LootState.h"
-#include "CombatState.h"
-#include "FleeState.h"
-#include "SuicideState.h"
-#include "../Movement/SteeringComponent.h"
-#include "../StudentPerceptor/StudentPerceptor.h"
-#include "LozanoMiguelZombieRuntime/Components/BlackBoard/BBKeys.h"
+#include "StateBaseLozanoMiguel.h"
+#include "WanderStateLozanoMiguel.h"
+#include "LootStateLozanoMiguel.h"
+#include "CombatStateLozanoMiguel.h"
+#include "FleeStateLozanoMiguel.h"
+#include "SuicideStateLozanoMiguel.h"
+#include "../Movement/SteeringComponentLozanoMiguel.h"
+#include "../StudentPerceptor/StudentPerceptorLozanoMiguel.h"
+#include "LozanoMiguelZombieRuntime/Components/BlackBoard/BBKeysLozanoMiguel.h"
 #include "Common/InventoryComponent.h"
 #include "Items/BaseItem.h"
 #include "Items/ItemType.h"
 
 
-TWeakObjectPtr<UAudioComponent> UFSMComponent::s_LiveAmbientMusicAC;
+TWeakObjectPtr<UAudioComponent> UFSMComponentLozanoMiguel::s_LiveAmbientMusicAC;
 
-UFSMComponent::UFSMComponent()
+UFSMComponentLozanoMiguel::UFSMComponentLozanoMiguel()
 {
 	PrimaryComponentTick.bCanEverTick = true;
 	bWantsInitializeComponent = true;
 }
 
-void UFSMComponent::InitializeComponent()
+void UFSMComponentLozanoMiguel::InitializeComponent()
 {
 	Super::InitializeComponent();
-	
+
 }
 
-void UFSMComponent::BeginPlay()
+void UFSMComponentLozanoMiguel::BeginPlay()
 {
 	Super::BeginPlay();
 
@@ -46,15 +46,15 @@ void UFSMComponent::BeginPlay()
 	if (UWorld * W = GetWorld())
 	{
 		W->GetTimerManager().SetTimerForNextTick(
-			FTimerDelegate::CreateUObject(this, &UFSMComponent::DeferredInit));
+			FTimerDelegate::CreateUObject(this, &UFSMComponentLozanoMiguel::DeferredInit));
 	}
-	
+
 	StartAmbientMusicOnce();
 }
 
-void UFSMComponent::StartAmbientMusicOnce()
+void UFSMComponentLozanoMiguel::StartAmbientMusicOnce()
 {
-	
+
 	if (s_LiveAmbientMusicAC.IsValid())
 	{
 		UE_LOG(LogTemp, Verbose, TEXT("[FSM] Ambient music already running — skipping."));
@@ -104,7 +104,7 @@ void UFSMComponent::StartAmbientMusicOnce()
 		return;
 	}
 
-	m_AmbientMusicAC->OnAudioFinished.AddDynamic(this, &UFSMComponent::OnAmbientMusicFinished);
+	m_AmbientMusicAC->OnAudioFinished.AddDynamic(this, &UFSMComponentLozanoMiguel::OnAmbientMusicFinished);
 	s_LiveAmbientMusicAC = m_AmbientMusicAC;
 
 	UE_LOG(LogTemp, Warning,
@@ -112,7 +112,7 @@ void UFSMComponent::StartAmbientMusicOnce()
 		m_AmbientMusicAC->IsPlaying() ? 1 : 0, m_AmbientMusicAC->VolumeMultiplier);
 }
 
-void UFSMComponent::OnAmbientMusicFinished()
+void UFSMComponentLozanoMiguel::OnAmbientMusicFinished()
 {
 	if (m_AmbientMusicAC && IsValid(m_AmbientMusicAC))
 	{
@@ -120,14 +120,14 @@ void UFSMComponent::OnAmbientMusicFinished()
 	}
 }
 
-void UFSMComponent::DeferredInit()
+void UFSMComponentLozanoMiguel::DeferredInit()
 {
 	AActor* Owner = GetOwner();
 	if (!Owner) return;
-	
+
 		Blackboard = ResolveBlackboard();
-	
-	USteeringComponent * Steering = Owner->FindComponentByClass<USteeringComponent>();
+
+	USteeringComponentLozanoMiguel * Steering = Owner->FindComponentByClass<USteeringComponentLozanoMiguel>();
 	if (!Steering)
 	{
 		UE_LOG(LogTemp, Error,
@@ -136,12 +136,12 @@ void UFSMComponent::DeferredInit()
 	}
 
 	// ADD THE FACT THAT MEMORY TICKS BEFORE STATE MACHINE
-	UStudentPerceptor * memory = Owner->FindComponentByClass<UStudentPerceptor>();
+	UStudentPerceptorLozanoMiguel * memory = Owner->FindComponentByClass<UStudentPerceptorLozanoMiguel>();
 	if (memory)
 	{
 		PrimaryComponentTick.AddPrerequisite(memory, memory->PrimaryComponentTick);
-		memory->m_StaminaLow.AddUObject(this, &UFSMComponent::HandleStaminaLow);
-		memory->m_HealthLow .AddUObject(this, &UFSMComponent::HandleHealthLow);
+		memory->m_StaminaLow.AddUObject(this, &UFSMComponentLozanoMiguel::HandleStaminaLow);
+		memory->m_HealthLow .AddUObject(this, &UFSMComponentLozanoMiguel::HandleHealthLow);
 	}
 	else
 	{
@@ -149,150 +149,150 @@ void UFSMComponent::DeferredInit()
 			TEXT("[FSM:%s] StudentPerceptor not found — needs delegates unbound."),
 			*GetNameSafe(Owner));
 	}
-	
-	
-	UWanderState * Wander = NewObject<UWanderState>(this);
-	ULootState * Loot = NewObject<ULootState>(this);
-	UCombatState * Combat = NewObject<UCombatState>(this);
-	UFleeState * Flee = NewObject<UFleeState>(this);
-	USuicideState * Suicide = NewObject<USuicideState>(this);
-	
+
+
+	UWanderStateLozanoMiguel * Wander = NewObject<UWanderStateLozanoMiguel>(this);
+	ULootStateLozanoMiguel * Loot = NewObject<ULootStateLozanoMiguel>(this);
+	UCombatStateLozanoMiguel * Combat = NewObject<UCombatStateLozanoMiguel>(this);
+	UFleeStateLozanoMiguel * Flee = NewObject<UFleeStateLozanoMiguel>(this);
+	USuicideStateLozanoMiguel * Suicide = NewObject<USuicideStateLozanoMiguel>(this);
+
 	RegisterState(Wander->GetStateName(), Wander);
 	RegisterState(Loot->GetStateName(),Loot);
 	RegisterState(Combat->GetStateName(),Combat);
 	RegisterState(Flee->GetStateName(),Flee);
 	RegisterState(Suicide->GetStateName(),Suicide);
-	
-	FFSMTransition WanderToLoot;
+
+	FFSMTransitionLozanoMiguel WanderToLoot;
 	WanderToLoot.From = Wander->GetStateName();
 	WanderToLoot.To   = Loot->GetStateName();
-	WanderToLoot.Predicate = [](UBlackboardComponent * BB) 
+	WanderToLoot.Predicate = [](UBlackboardComponent * BB)
 	{
 		const FBlackboard::FKey KeyID =
-		BB->GetKeyID(BBKeys::bArrivedAtInterestPoint);
+		BB->GetKeyID(BBKeysLozanoMiguel::bArrivedAtInterestPoint);
 		if (KeyID == FBlackboard::InvalidKey)
 		{
 			UE_LOG(LogTemp, Error,
 				TEXT("Blackboard key bTargetVisible does not exist"));
 			return false;
 		}
-		return BB->GetValueAsBool(BBKeys::bArrivedAtInterestPoint);
+		return BB->GetValueAsBool(BBKeysLozanoMiguel::bArrivedAtInterestPoint);
 	};
-	
-	
-	FFSMTransition ToLootWander;
+
+
+	FFSMTransitionLozanoMiguel ToLootWander;
 	ToLootWander.From = Loot->GetStateName();
 	ToLootWander.To   = Wander->GetStateName();
-	ToLootWander.Predicate = [](UBlackboardComponent * BB) 
+	ToLootWander.Predicate = [](UBlackboardComponent * BB)
 	{
 		const FBlackboard::FKey KeyID =
-		BB->GetKeyID(BBKeys::bLootDone);
+		BB->GetKeyID(BBKeysLozanoMiguel::bLootDone);
 		if (KeyID == FBlackboard::InvalidKey)
 		{
 			UE_LOG(LogTemp, Error,
 				TEXT("Blackboard key bTargetVisible does not exist"));
 			return false;
 		}
-		return BB->GetValueAsBool(BBKeys::bLootDone);
+		return BB->GetValueAsBool(BBKeysLozanoMiguel::bLootDone);
 	};
 
-	AddTransition(WanderToLoot);  
-	AddTransition(ToLootWander);  
-	
+	AddTransition(WanderToLoot);
+	AddTransition(ToLootWander);
 
-	FFSMGlobalTransition ToSuicide;
+
+	FFSMGlobalTransitionLozanoMiguel ToSuicide;
 	ToSuicide.To = Suicide->GetStateName();
 	ToSuicide.Predicate = [](UBlackboardComponent* BB)
 	{
-		const FBlackboard::FKey KeyID = BB->GetKeyID(BBKeys::bShouldSuicide);
+		const FBlackboard::FKey KeyID = BB->GetKeyID(BBKeysLozanoMiguel::bShouldSuicide);
 		if (KeyID == FBlackboard::InvalidKey)
 		{
 			UE_LOG(LogTemp, Error, TEXT("Blackboard key bShouldSuicide does not exist"));
 			return false;
 		}
-		return BB->GetValueAsBool(BBKeys::bShouldSuicide);
+		return BB->GetValueAsBool(BBKeysLozanoMiguel::bShouldSuicide);
 	};
 	AddGlobalTransition(ToSuicide);
 
-	FFSMGlobalTransition ToFlee;
+	FFSMGlobalTransitionLozanoMiguel ToFlee;
 	ToFlee.To = Flee->GetStateName();
 	ToFlee.Predicate = [](UBlackboardComponent* BB)
 	{
 		// Suicide outranks Flee — if we're queued to die, don't run.
-		const FBlackboard::FKey SuicideKey = BB->GetKeyID(BBKeys::bShouldSuicide);
+		const FBlackboard::FKey SuicideKey = BB->GetKeyID(BBKeysLozanoMiguel::bShouldSuicide);
 		if (SuicideKey != FBlackboard::InvalidKey &&
-			BB->GetValueAsBool(BBKeys::bShouldSuicide))
+			BB->GetValueAsBool(BBKeysLozanoMiguel::bShouldSuicide))
 		{
 			return false;
 		}
 
-		const FBlackboard::FKey KeyID = BB->GetKeyID(BBKeys::bPurgeZoneNearby);
+		const FBlackboard::FKey KeyID = BB->GetKeyID(BBKeysLozanoMiguel::bPurgeZoneNearby);
 		if (KeyID == FBlackboard::InvalidKey)
 		{
 			UE_LOG(LogTemp, Error, TEXT("Blackboard key bPurgeZoneNearby does not exist"));
 			return false;
 		}
-		return BB->GetValueAsBool(BBKeys::bPurgeZoneNearby);
+		return BB->GetValueAsBool(BBKeysLozanoMiguel::bPurgeZoneNearby);
 	};
 	AddGlobalTransition(ToFlee);
 
-	FFSMGlobalTransition ToCombat;
+	FFSMGlobalTransitionLozanoMiguel ToCombat;
 	ToCombat.To = Combat->GetStateName();
 	ToCombat.Predicate = [](UBlackboardComponent * BB)
 	{
 		// Combat is gated by BOTH higher-priority signals.
-		const FBlackboard::FKey SuicideKey = BB->GetKeyID(BBKeys::bShouldSuicide);
+		const FBlackboard::FKey SuicideKey = BB->GetKeyID(BBKeysLozanoMiguel::bShouldSuicide);
 		if (SuicideKey != FBlackboard::InvalidKey &&
-			BB->GetValueAsBool(BBKeys::bShouldSuicide))
+			BB->GetValueAsBool(BBKeysLozanoMiguel::bShouldSuicide))
 		{
 			return false;
 		}
-		const FBlackboard::FKey FleeKey = BB->GetKeyID(BBKeys::bPurgeZoneNearby);
+		const FBlackboard::FKey FleeKey = BB->GetKeyID(BBKeysLozanoMiguel::bPurgeZoneNearby);
 		if (FleeKey != FBlackboard::InvalidKey &&
-			BB->GetValueAsBool(BBKeys::bPurgeZoneNearby))
+			BB->GetValueAsBool(BBKeysLozanoMiguel::bPurgeZoneNearby))
 		{
 			return false;
 		}
 
-		const FBlackboard::FKey KeyID = BB->GetKeyID(BBKeys::bThreatNearby);
+		const FBlackboard::FKey KeyID = BB->GetKeyID(BBKeysLozanoMiguel::bThreatNearby);
 		if (KeyID == FBlackboard::InvalidKey)
 		{
 			UE_LOG(LogTemp, Error, TEXT("Blackboard key bThreatNearby does not exist"));
 			return false;
 		}
-		return BB->GetValueAsBool(BBKeys::bThreatNearby);
+		return BB->GetValueAsBool(BBKeysLozanoMiguel::bThreatNearby);
 	};
 	AddGlobalTransition(ToCombat);
 
 	// Flee→Wander when the perceptor reports the zone is no longer close.
 	// Per-state (not global) so it only fires while Flee is active.
-	FFSMTransition FleeToWander;
+	FFSMTransitionLozanoMiguel FleeToWander;
 	FleeToWander.From      = Flee->GetStateName();
 	FleeToWander.To        = Wander->GetStateName();
 	FleeToWander.Predicate = [](UBlackboardComponent* BB)
 	{
-		const FBlackboard::FKey KeyID = BB->GetKeyID(BBKeys::bPurgeZoneNearby);
+		const FBlackboard::FKey KeyID = BB->GetKeyID(BBKeysLozanoMiguel::bPurgeZoneNearby);
 		if (KeyID == FBlackboard::InvalidKey) return false;
 		// Out of Flee the moment the zone is no longer flagged.
-		return !BB->GetValueAsBool(BBKeys::bPurgeZoneNearby);
+		return !BB->GetValueAsBool(BBKeysLozanoMiguel::bPurgeZoneNearby);
 	};
 	AddTransition(FleeToWander);
-	
-	FFSMTransition CombatToWander;
+
+	FFSMTransitionLozanoMiguel CombatToWander;
 	CombatToWander.From      = Combat->GetStateName();
 	CombatToWander.To        = Wander->GetStateName();
 	CombatToWander.Predicate = [](UBlackboardComponent * BB)
 	{
-		const FBlackboard::FKey KeyID = BB->GetKeyID(BBKeys::bThreatGone);
+		const FBlackboard::FKey KeyID = BB->GetKeyID(BBKeysLozanoMiguel::bThreatGone);
 		if (KeyID == FBlackboard::InvalidKey)
 		{
 			UE_LOG(LogTemp, Error, TEXT("Blackboard key bThreatGone does not exist"));
 			return false;
 		}
-		return BB->GetValueAsBool(BBKeys::bThreatGone);
+		return BB->GetValueAsBool(BBKeysLozanoMiguel::bThreatGone);
 	};
 	AddTransition(CombatToWander);
-	
+
 	if (InitialState.IsNone())
 		InitialState = Wander->GetStateName();
 
@@ -307,7 +307,7 @@ void UFSMComponent::DeferredInit()
 	TransitionTo(InitialState);
 }
 
-void UFSMComponent::TickComponent(float DeltaTime, ELevelTick TickType,
+void UFSMComponentLozanoMiguel::TickComponent(float DeltaTime, ELevelTick TickType,
                                   FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
@@ -321,7 +321,7 @@ void UFSMComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 
 	if (BB)
 	{
-		for (const FFSMGlobalTransition & G : GlobalTransitions)
+		for (const FFSMGlobalTransitionLozanoMiguel & G : GlobalTransitions)
 		{
 			if (G.To == CurrentStateName) continue;
 			if (G.Predicate && G.Predicate(BB))
@@ -333,7 +333,7 @@ void UFSMComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 	}
 
 	// 2) Per-state transitions.
-	for (const FFSMTransition & T : Transitions)
+	for (const FFSMTransitionLozanoMiguel & T : Transitions)
 	{
 		if (T.From == CurrentStateName && EvaluateTransition(T, BB))
 		{
@@ -345,24 +345,24 @@ void UFSMComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 	CurrentState->OnTick(DeltaTime, Owner);
 }
 
-void UFSMComponent::RegisterState(FName Name, UStateBase* State)
+void UFSMComponentLozanoMiguel::RegisterState(FName Name, UStateBaseLozanoMiguel* State)
 {
 	if (!State) return;
-	State->Init(this); 
+	State->Init(this);
 	States.Add(Name, State);
 }
 
-void UFSMComponent::AddTransition(const FFSMTransition& Transition)
+void UFSMComponentLozanoMiguel::AddTransition(const FFSMTransitionLozanoMiguel& Transition)
 {
 	Transitions.Add(Transition);
 }
 
-void UFSMComponent::AddGlobalTransition(const FFSMGlobalTransition& Transition)
+void UFSMComponentLozanoMiguel::AddGlobalTransition(const FFSMGlobalTransitionLozanoMiguel& Transition)
 {
 	GlobalTransitions.Add(Transition);
 }
 
-void UFSMComponent::ForceTransition(FName To)
+void UFSMComponentLozanoMiguel::ForceTransition(FName To)
 {
 	TransitionTo(To);
 }
@@ -380,7 +380,7 @@ namespace
 				bool result = Inv->UseItem(i);
 				if (Slots[i]->GetValue() <=0)
 				{
-					//if after using Item values is 0 remove it 
+					//if after using Item values is 0 remove it
 					Inv->RemoveItem(i);
 				}
 				return result;
@@ -390,9 +390,9 @@ namespace
 	}
 }
 
-void UFSMComponent::HandleStaminaLow()
+void UFSMComponentLozanoMiguel::HandleStaminaLow()
 {
-	
+
 	AActor* Owner = GetOwner();
 	UInventoryComponent* Inv = Owner ? Owner->FindComponentByClass<UInventoryComponent>() : nullptr;
 	const bool bUsed = UseFirstItemOfType(Inv, EItemType::Food);
@@ -401,7 +401,7 @@ void UFSMComponent::HandleStaminaLow()
 		bUsed ? TEXT("succeeded") : TEXT("failed (no food in inventory)"));
 }
 
-void UFSMComponent::HandleHealthLow()
+void UFSMComponentLozanoMiguel::HandleHealthLow()
 {
 	AActor* Owner = GetOwner();
 	UInventoryComponent * Inv = Owner ? Owner->FindComponentByClass<UInventoryComponent>() : nullptr;
@@ -411,7 +411,7 @@ void UFSMComponent::HandleHealthLow()
 		bUsed ? TEXT("succeeded") : TEXT("failed (no medkit in inventory)"));
 }
 
-UBlackboardComponent * UFSMComponent::ResolveBlackboard() const
+UBlackboardComponent * UFSMComponentLozanoMiguel::ResolveBlackboard() const
 {
 	APawn* Pawn = Cast<APawn>(GetOwner());
 	if (!Pawn) return nullptr;
@@ -419,14 +419,14 @@ UBlackboardComponent * UFSMComponent::ResolveBlackboard() const
 	return AI ? AI->GetBlackboardComponent() : nullptr;
 }
 
-bool UFSMComponent::EvaluateTransition(const FFSMTransition& T, UBlackboardComponent* BB) const
+bool UFSMComponentLozanoMiguel::EvaluateTransition(const FFSMTransitionLozanoMiguel& T, UBlackboardComponent* BB) const
 {
 	return T.Predicate && T.Predicate(BB);
 }
 
-void UFSMComponent::TransitionTo(FName To)
+void UFSMComponentLozanoMiguel::TransitionTo(FName To)
 {
-	TObjectPtr<UStateBase>* Found = States.Find(To);
+	TObjectPtr<UStateBaseLozanoMiguel>* Found = States.Find(To);
 	if (!Found || !*Found)
 		return;
 

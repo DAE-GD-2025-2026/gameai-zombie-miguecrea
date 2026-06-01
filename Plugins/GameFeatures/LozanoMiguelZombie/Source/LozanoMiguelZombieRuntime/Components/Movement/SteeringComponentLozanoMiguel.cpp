@@ -1,7 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "SteeringComponent.h"
+#include "SteeringComponentLozanoMiguel.h"
 #include "SurvivorAIController.h"
 #include "AITypes.h"
 #include "NavigationSystem.h"
@@ -10,17 +10,17 @@
 #include "GameFramework/SpectatorPawn.h"
 #include "GameAI_Zombie/GameManagement/ZombieGameMode.h"
 #include "TimerManager.h"
-#include "../SpectatorComponent/SpectatorFollowComponent.h"
+#include "../SpectatorComponent/SpectatorFollowComponentLozanoMiguel.h"
 #include "../MACROS/DebugMacro.h"
 #include "Survivor/SurvivorPawn.h"
 #include "NavigationPath.h"
 
-USteeringComponent::USteeringComponent()
+USteeringComponentLozanoMiguel::USteeringComponentLozanoMiguel()
 {
 	PrimaryComponentTick.bCanEverTick = true;
 }
 
-void USteeringComponent::Move(const FVector & ToLocation)
+void USteeringComponentLozanoMiguel::Move(const FVector & ToLocation)
 {
 	if (!m_AIController)
 	{
@@ -172,15 +172,15 @@ void USteeringComponent::Move(const FVector & ToLocation)
 
 		break;
 	}
-	
+
 }
 
-void USteeringComponent::SetRotate(bool Rotate)
+void USteeringComponentLozanoMiguel::SetRotate(bool Rotate)
 {
 	m_Rotate = Rotate;
 }
 
-void USteeringComponent::BeginPlay()
+void USteeringComponentLozanoMiguel::BeginPlay()
 {
 	Super::BeginPlay();
 	m_PawnOwner = Cast<APawn>(GetOwner());
@@ -195,7 +195,7 @@ void USteeringComponent::BeginPlay()
 	GetAI();
 }
 
-ASurvivorAIController * USteeringComponent::GetAI()
+ASurvivorAIController * USteeringComponentLozanoMiguel::GetAI()
 {
 	if (m_AIController) return m_AIController;
 
@@ -209,20 +209,20 @@ ASurvivorAIController * USteeringComponent::GetAI()
 	m_AIController->ClearFocus(EAIFocusPriority::Gameplay); // remove combat override
 	m_AIController->ClearFocus(EAIFocusPriority::Default);  // remove baseline
 	m_AIController->ClearFocus(EAIFocusPriority::Move);     // remove move-driven
-	
+
 	m_AIController->ReceiveMoveCompleted.AddUniqueDynamic(
-		this, &USteeringComponent::HandleAIMoveCompleted);
+		this, &USteeringComponentLozanoMiguel::HandleAIMoveCompleted);
 
 	return m_AIController;
 }
 
-void USteeringComponent::HandleAIMoveCompleted(FAIRequestID /*RequestID*/,
+void USteeringComponentLozanoMiguel::HandleAIMoveCompleted(FAIRequestID /*RequestID*/,
                                                EPathFollowingResult::Type Result)
 {
 	OnMoveCompleted.Broadcast(Result);
 }
 
-void USteeringComponent::RenderPath()
+void USteeringComponentLozanoMiguel::RenderPath()
 {
 	ASurvivorAIController * AI = GetAI();
 	if (!AI) return;
@@ -245,7 +245,7 @@ void USteeringComponent::RenderPath()
 	}
 }
 
-void USteeringComponent::TickComponent(float DeltaTime, ELevelTick TickType,
+void USteeringComponentLozanoMiguel::TickComponent(float DeltaTime, ELevelTick TickType,
                                        FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
@@ -262,19 +262,19 @@ void USteeringComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 
 }
 
-void USteeringComponent::SetFocus(AActor * ActorToFocus)
+void USteeringComponentLozanoMiguel::SetFocus(AActor * ActorToFocus)
 {
 	m_AIController->SetFocus(ActorToFocus);
 }
 
-void USteeringComponent::ClearFocus()
+void USteeringComponentLozanoMiguel::ClearFocus()
 {
 	m_AIController->ClearFocus(EAIFocusPriority::Move);
 }
 
-void USteeringComponent::StopMoving()
+void USteeringComponentLozanoMiguel::StopMoving()
 {
-	
+
 	if (m_AIController)
 	{
 		m_AIController->StopMovement();
@@ -289,7 +289,7 @@ void USteeringComponent::StopMoving()
 // 	FRotator Target = Vel.Rotation();
 // 	Target.Pitch = 0.f;
 // 	Target.Roll = 0.f;
-// 		
+//
 // 	FRotator NewRot = FMath::RInterpTo(Current, Target, DeltaTime, m_FaceVelocitySpeed);
 // 	m_PawnOwner->SetActorRotation(NewRot);
 // }

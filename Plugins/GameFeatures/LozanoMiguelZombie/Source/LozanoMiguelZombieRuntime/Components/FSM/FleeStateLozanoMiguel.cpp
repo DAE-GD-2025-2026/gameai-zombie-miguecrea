@@ -1,43 +1,43 @@
-#include "FleeState.h"
+#include "FleeStateLozanoMiguel.h"
 
-#include "FSMComponent.h"
+#include "FSMComponentLozanoMiguel.h"
 #include "BehaviorTree/BlackboardComponent.h"
 
-#include "../Movement/SteeringComponent.h"
-#include "../BlackBoard/BBKeys.h"
+#include "../Movement/SteeringComponentLozanoMiguel.h"
+#include "../BlackBoard/BBKeysLozanoMiguel.h"
 
 #include "EngineUtils.h"  // TActorIterator
 #include "PurgeZones/PurgeZone.h"
 
 
-UFleeState::UFleeState()
-	: UStateBase()
+UFleeStateLozanoMiguel::UFleeStateLozanoMiguel()
+	: UStateBaseLozanoMiguel()
 {
 }
 
-void UFleeState::OnInit()
+void UFleeStateLozanoMiguel::OnInit()
 {
-	Steering = GetSibling<USteeringComponent>();
+	Steering = GetSibling<USteeringComponentLozanoMiguel>();
 }
 
-void UFleeState::OnEnter_Implementation(AActor* Owner)
+void UFleeStateLozanoMiguel::OnEnter_Implementation(AActor* Owner)
 {
 	UE_LOG(LogTemp, Warning, TEXT("UFlee State OnEnter"));
 
 
 	if (Steering.IsValid()) Steering->StopMoving();
-	
+
 	if (Steering.IsValid()) Steering->SetRotate(false);
 
-	m_ReplanTimer = ReplanInterval; 
-	
+	m_ReplanTimer = ReplanInterval;
+
 	if (FSM.IsValid() && FSM->Blackboard.IsValid())
 	{
-		FSM->Blackboard->SetValueAsBool(BBKeys::bThreatGone, false);
+		FSM->Blackboard->SetValueAsBool(BBKeysLozanoMiguel::bThreatGone, false);
 	}
 }
 
-void UFleeState::OnTick_Implementation(float DeltaTime, AActor* Owner)
+void UFleeStateLozanoMiguel::OnTick_Implementation(float DeltaTime, AActor* Owner)
 {
 	if (!Owner || !Steering.IsValid()) return;
 
@@ -57,7 +57,6 @@ void UFleeState::OnTick_Implementation(float DeltaTime, AActor* Owner)
 	FVector AwayDir = (MyLoc - ZoneLoc).GetSafeNormal2D();
 	if (AwayDir.IsNearlyZero())
 	{
-		// Standing exactly on the zone center — pick any direction.
 		AwayDir = Owner->GetActorForwardVector();
 		AwayDir.Z = 0.f;
 		AwayDir.Normalize();
@@ -67,12 +66,12 @@ void UFleeState::OnTick_Implementation(float DeltaTime, AActor* Owner)
 	Steering->Move(Destination);
 }
 
-void UFleeState::OnExit_Implementation(AActor* Owner)
+void UFleeStateLozanoMiguel::OnExit_Implementation(AActor* Owner)
 {
 	m_ReplanTimer = 0.f;
 }
 
-APurgeZone* UFleeState::FindClosestDangerousZone(AActor* Owner) const
+APurgeZone* UFleeStateLozanoMiguel::FindClosestDangerousZone(AActor* Owner) const
 {
 	UWorld* W = Owner ? Owner->GetWorld() : nullptr;
 	if (!W) return nullptr;
@@ -87,8 +86,6 @@ APurgeZone* UFleeState::FindClosestDangerousZone(AActor* Owner) const
 		APurgeZone* Z = *It;
 		if (!IsValid(Z)) continue;
 
-		// Diameter is protected on APurgeZone — read via reflection so we
-		// don't depend on a host accessor.
 		float Diameter = 0.f;
 		if (const FFloatProperty* DiamProp =
 			FindFProperty<FFloatProperty>(Z->GetClass(), TEXT("Diameter")))

@@ -1,32 +1,29 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "StateBase.h"
-#include "CombatState.generated.h"
+#include "StateBaseLozanoMiguel.h"
+#include "CombatStateLozanoMiguel.generated.h"
 
-class USteeringComponent;
-class UStudentPerceptor;
+class USteeringComponentLozanoMiguel;
+class UStudentPerceptorLozanoMiguel;
 class UInventoryComponent;
 class ABaseItem;
 class ABaseZombie;
 class USoundBase;
 
 UCLASS()
-class LOZANOMIGUELZOMBIERUNTIME_API UCombatState : public UStateBase
+class LOZANOMIGUELZOMBIERUNTIME_API UCombatStateLozanoMiguel : public UStateBaseLozanoMiguel
 {
 	GENERATED_BODY()
 
 public:
-	UCombatState();
+	UCombatStateLozanoMiguel();
 
 protected:
-	TWeakObjectPtr<USteeringComponent>   SteeringComponent;
-	TWeakObjectPtr<UStudentPerceptor>    Memory;
-	TWeakObjectPtr<UInventoryComponent>  Inventory;
+	TWeakObjectPtr<USteeringComponentLozanoMiguel> SteeringComponent;
+	TWeakObjectPtr<UStudentPerceptorLozanoMiguel>  Memory;
+	TWeakObjectPtr<UInventoryComponent>            Inventory;
 
-	// Weak ref to the actual weapon actor that Memory thinks is closest.
-	// TWeakObjectPtr works because ABaseItem is a UObject; FInterestPoint
-	// is a USTRUCT and can't be tracked weakly.
 	TWeakObjectPtr<ABaseItem>            m_ClosestWeaponInMemory;
 
 	virtual void OnInit() override;

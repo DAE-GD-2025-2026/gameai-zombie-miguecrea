@@ -1,26 +1,23 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "StateBase.h"
+#include "StateBaseLozanoMiguel.h"
 #include <optional>
-#include "LootState.generated.h"
+#include "LootStateLozanoMiguel.generated.h"
 
-class USteeringComponent;
+class USteeringComponentLozanoMiguel;
 class UInventoryComponent;
-class UStudentPerceptor;
+class UStudentPerceptorLozanoMiguel;
 class USoundBase;
 class ABaseItem;
 
 UCLASS()
-class LOZANOMIGUELZOMBIERUNTIME_API ULootState : public UStateBase
+class LOZANOMIGUELZOMBIERUNTIME_API ULootStateLozanoMiguel : public UStateBaseLozanoMiguel
 {
 	GENERATED_BODY()
 public:
-	ULootState();
+	ULootStateLozanoMiguel();
 protected:
-	// Mini FSM inside the Loot state. Two flows:
-	//   1) 2/3 of entries: AlignToItem -> Looting
-	//   2) 1/3 of entries: ScanAlign -> Scanning -> AlignToItem -> Looting
 	enum class ELootPhase : uint8
 	{
 		ScanAlign,
@@ -29,9 +26,9 @@ protected:
 		Looting
 	};
 
-	TWeakObjectPtr<USteeringComponent>     Steering;
-	TWeakObjectPtr<UInventoryComponent>    Inventory;
-	TWeakObjectPtr<UStudentPerceptor>      Memory;
+	TWeakObjectPtr<USteeringComponentLozanoMiguel> Steering;
+	TWeakObjectPtr<UInventoryComponent>            Inventory;
+	TWeakObjectPtr<UStudentPerceptorLozanoMiguel>  Memory;
 
 	virtual void OnInit() override;
 	virtual void OnEnter_Implementation(AActor * Owner) override;
@@ -39,8 +36,6 @@ protected:
 	virtual void OnExit_Implementation(AActor * Owner) override;
 
 	void ResumeWandering();
-
-	// --- Tuning -------------------------------------------------------------
 
 	UPROPERTY(EditDefaultsOnly, Category="Loot", meta=(ClampMin="0.0", ClampMax="1.0"))
 	float ScanProbability = 0.5f;

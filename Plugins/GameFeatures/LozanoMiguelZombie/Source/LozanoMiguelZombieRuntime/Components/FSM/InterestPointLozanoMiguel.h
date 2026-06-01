@@ -1,11 +1,11 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "ReasonToMove.h"
-#include "InterestPoint.generated.h"
+#include "ReasonToMoveLozanoMiguel.h"
+#include "InterestPointLozanoMiguel.generated.h"
 
 USTRUCT(BlueprintType)
-struct FInterestPoint
+struct FInterestPointLozanoMiguel
 {
 	GENERATED_BODY()
 
@@ -15,9 +15,8 @@ struct FInterestPoint
 	UPROPERTY()
 	bool m_Visited = false;
 
-	bool operator==(const FInterestPoint& Other) const
+	bool operator==(const FInterestPointLozanoMiguel& Other) const
 	{
 		return Actor == Other.Actor;
 	}
-	
 };

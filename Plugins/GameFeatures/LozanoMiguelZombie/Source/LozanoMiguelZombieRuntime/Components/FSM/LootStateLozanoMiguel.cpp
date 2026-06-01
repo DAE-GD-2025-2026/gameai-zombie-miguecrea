@@ -1,13 +1,13 @@
-#include "LootState.h"
+#include "LootStateLozanoMiguel.h"
 
-#include "FSMComponent.h"
-#include "LootSlots.h"
-#include "InterestPoint.h"
+#include "FSMComponentLozanoMiguel.h"
+#include "LootSlotsLozanoMiguel.h"
+#include "InterestPointLozanoMiguel.h"
 #include "BehaviorTree/BlackboardComponent.h"
 
-#include "../Movement/SteeringComponent.h"
-#include "../BlackBoard/BBKeys.h"
-#include "../StudentPerceptor/StudentPerceptor.h"
+#include "../Movement/SteeringComponentLozanoMiguel.h"
+#include "../BlackBoard/BBKeysLozanoMiguel.h"
+#include "../StudentPerceptor/StudentPerceptorLozanoMiguel.h"
 #include "Common/InventoryComponent.h"
 #include "Items/BaseItem.h"
 #include "Items/ItemType.h"
@@ -15,16 +15,16 @@
 #include "Kismet/GameplayStatics.h"
 
 
-ULootState::ULootState()
-	: UStateBase()
+ULootStateLozanoMiguel::ULootStateLozanoMiguel()
+	: UStateBaseLozanoMiguel()
 {
 }
 
-void ULootState::OnInit()
+void ULootStateLozanoMiguel::OnInit()
 {
-	Steering  = GetSibling<USteeringComponent>();
+	Steering  = GetSibling<USteeringComponentLozanoMiguel>();
 	Inventory = GetSibling<UInventoryComponent>();
-	Memory    = GetSibling<UStudentPerceptor>();
+	Memory    = GetSibling<UStudentPerceptorLozanoMiguel>();
 
 	static const TCHAR* LootSoundPath =
 		TEXT("/LozanoMiguelZombie/Sounds/freesound_community-item-equip-6904.freesound_community-item-equip-6904");
@@ -38,7 +38,7 @@ void ULootState::OnInit()
 	}
 }
 
-void ULootState::OnEnter_Implementation(AActor* Owner)
+void ULootStateLozanoMiguel::OnEnter_Implementation(AActor* Owner)
 {
 	UE_LOG(LogTemp, Warning, TEXT("Loot State Entered"));
 	if (!Owner) return;
@@ -47,13 +47,13 @@ void ULootState::OnEnter_Implementation(AActor* Owner)
 
 	if (FSM.IsValid() && FSM->Blackboard.IsValid())
 	{
-		FSM->Blackboard->SetValueAsBool(BBKeys::bArrivedAtInterestPoint, false);
+		FSM->Blackboard->SetValueAsBool(BBKeysLozanoMiguel::bArrivedAtInterestPoint, false);
 	}
 
 	UObject* ItemObj = nullptr;
 	if (FSM.IsValid() && FSM->Blackboard.IsValid())
 	{
-		ItemObj = FSM->Blackboard->GetValueAsObject(BBKeys::bItem);
+		ItemObj = FSM->Blackboard->GetValueAsObject(BBKeysLozanoMiguel::bItem);
 	}
 
 	ABaseItem* Item = Cast<ABaseItem>(ItemObj);
@@ -65,7 +65,7 @@ void ULootState::OnEnter_Implementation(AActor* Owner)
 	}
 	if (!WillIGrabThisItem(Item))
 	{
-		FSM->Blackboard->SetValueAsObject(BBKeys::bItem,nullptr);
+		FSM->Blackboard->SetValueAsObject(BBKeysLozanoMiguel::bItem, nullptr);
 		ResumeWandering();
 		return;
 	}
@@ -95,7 +95,7 @@ void ULootState::OnEnter_Implementation(AActor* Owner)
 	}
 }
 
-void ULootState::OnTick_Implementation(float DeltaTime, AActor* Owner)
+void ULootStateLozanoMiguel::OnTick_Implementation(float DeltaTime, AActor* Owner)
 {
 	if (!Owner) return;
 
@@ -161,7 +161,7 @@ void ULootState::OnTick_Implementation(float DeltaTime, AActor* Owner)
 			ABaseItem* Item = nullptr;
 			if (FSM.IsValid() && FSM->Blackboard.IsValid())
 			{
-				UObject* ItemObj = FSM->Blackboard->GetValueAsObject(BBKeys::bItem);
+				UObject* ItemObj = FSM->Blackboard->GetValueAsObject(BBKeysLozanoMiguel::bItem);
 				Item = Cast<ABaseItem>(ItemObj);
 			}
 
@@ -176,25 +176,25 @@ void ULootState::OnTick_Implementation(float DeltaTime, AActor* Owner)
 	}
 }
 
-void ULootState::OnExit_Implementation(AActor* Owner)
+void ULootStateLozanoMiguel::OnExit_Implementation(AActor* Owner)
 {
 	m_TargetInventoryIndex.reset();
 	m_ScanElapsed = 0.f;
 	m_LootTimer   = 0.f;
 	m_Phase       = ELootPhase::AlignToItem;
 
-	FSM->Blackboard->SetValueAsObject(BBKeys::bItem, nullptr);
+	FSM->Blackboard->SetValueAsObject(BBKeysLozanoMiguel::bItem, nullptr);
 }
 
-void ULootState::ResumeWandering()
+void ULootStateLozanoMiguel::ResumeWandering()
 {
 	if (FSM.IsValid() && FSM->Blackboard.IsValid())
 	{
-		FSM->Blackboard->SetValueAsBool(BBKeys::bLootDone, true);
+		FSM->Blackboard->SetValueAsBool(BBKeysLozanoMiguel::bLootDone, true);
 	}
 }
 
-void ULootState::TickAlignToward(float Dt, AActor* Owner, const FRotator& Target) const
+void ULootStateLozanoMiguel::TickAlignToward(float Dt, AActor* Owner, const FRotator& Target) const
 {
 	if (!Owner) return;
 	FRotator Cur = Owner->GetActorRotation();
@@ -204,7 +204,7 @@ void ULootState::TickAlignToward(float Dt, AActor* Owner, const FRotator& Target
 	Owner->SetActorRotation(New);
 }
 
-bool ULootState::IsAlignedTo(AActor* Owner, const FRotator& Target) const
+bool ULootStateLozanoMiguel::IsAlignedTo(AActor* Owner, const FRotator& Target) const
 {
 	if (!Owner) return false;
 	const float DeltaYaw =
@@ -213,7 +213,7 @@ bool ULootState::IsAlignedTo(AActor* Owner, const FRotator& Target) const
 }
 
 
-bool ULootState::WillIGrabThisItem(ABaseItem* Item)
+bool ULootStateLozanoMiguel::WillIGrabThisItem(ABaseItem* Item)
 {
 	m_TargetInventoryIndex.reset();
 
@@ -225,7 +225,6 @@ bool ULootState::WillIGrabThisItem(ABaseItem* Item)
 
 	const TArray<ABaseItem*>& Slots = Inventory->GetInventory();
 
-	// 1) Empty slot? Grab into first empty.
 	for (int32 i = 0; i < Slots.Num(); ++i)
 	{
 		if (Slots[i] == nullptr)
@@ -235,7 +234,6 @@ bool ULootState::WillIGrabThisItem(ABaseItem* Item)
 		}
 	}
 
-	// Inventory full — count loadout, find candidate evictees.
 	int32 NumWeapons = 0, NumFood = 0, NumMedkit = 0;
 	int32 LowestWeaponSlot  = -1;
 	int32 LowestWeaponScore = TNumericLimits<int32>::Max();
@@ -253,10 +251,7 @@ bool ULootState::WillIGrabThisItem(ABaseItem* Item)
 		case EItemType::Shotgun:
 		{
 			++NumWeapons;
-			// Score by ammo (Value) — the worst weapon is the one with the
-			// least ammo, not the one with the wrong type. A near-empty
-			// Shotgun loses to a near-full Pistol.
-			const int32 Score = LootSlots::WeaponScore(S);
+			const int32 Score = LootSlotsLozanoMiguel::WeaponScore(S);
 			if (Score < LowestWeaponScore)
 			{
 				LowestWeaponScore = Score;
@@ -275,14 +270,11 @@ bool ULootState::WillIGrabThisItem(ABaseItem* Item)
 		default: break;
 		}
 	}
-	//
 
 	constexpr int32 IdealWeapons = 3;
 	constexpr int32 IdealFood    = 1;
 	constexpr int32 IdealMedkit  = 1;
 
-	
-	// if has less than ideal weapons 
 	if (Type == EItemType::Pistol || Type == EItemType::Shotgun)
 	{
 		if (NumWeapons < IdealWeapons)
@@ -291,8 +283,7 @@ bool ULootState::WillIGrabThisItem(ABaseItem* Item)
 			if (NumMedkit > IdealMedkit && AnyMedkitSlot >= 0) { m_TargetInventoryIndex = AnyMedkitSlot; return true; }
 			return false;
 		}
-		// New weapon's score is its own ammo count.
-		const int32 NewScore = LootSlots::WeaponScore(Item);
+		const int32 NewScore = LootSlotsLozanoMiguel::WeaponScore(Item);
 		if (LowestWeaponSlot >= 0 && NewScore > LowestWeaponScore)
 		{
 			UE_LOG(LogTemp, Warning,
@@ -323,12 +314,12 @@ bool ULootState::WillIGrabThisItem(ABaseItem* Item)
 	return false;
 }
 
-void ULootState::GrabItem(int Slot)
+void ULootStateLozanoMiguel::GrabItem(int Slot)
 {
 	UObject* ItemObj = nullptr;
 	if (FSM.IsValid() && FSM->Blackboard.IsValid())
 	{
-		ItemObj = FSM->Blackboard->GetValueAsObject(BBKeys::bItem);
+		ItemObj = FSM->Blackboard->GetValueAsObject(BBKeysLozanoMiguel::bItem);
 	}
 	ABaseItem* Item = Cast<ABaseItem>(ItemObj);
 	if (!Item) return;
@@ -339,14 +330,12 @@ void ULootState::GrabItem(int Slot)
 	}
 
 	Inventory->GrabItem(Slot, Item);
-	
-	 FSM->Blackboard->SetValueAsObject(BBKeys::bItem,nullptr);
 
-	// Forget the interest point for this item — FInterestPoint::operator==
-	// matches by Actor, so a probe with only the Actor field set is enough.
+	FSM->Blackboard->SetValueAsObject(BBKeysLozanoMiguel::bItem, nullptr);
+
 	if (Memory.IsValid())
 	{
-		FInterestPoint Probe;
+		FInterestPointLozanoMiguel Probe;
 		Probe.Actor = Item;
 		Memory->m_WannaPointsInBrain.Remove(Probe);
 	}

@@ -1,12 +1,12 @@
-#include "CombatState.h"
+#include "CombatStateLozanoMiguel.h"
 
-#include "FSMComponent.h"
-#include "InterestPoint.h"
+#include "FSMComponentLozanoMiguel.h"
+#include "InterestPointLozanoMiguel.h"
 #include "BehaviorTree/BlackboardComponent.h"
 
-#include "../Movement/SteeringComponent.h"
-#include "../BlackBoard/BBKeys.h"
-#include "../StudentPerceptor/StudentPerceptor.h"
+#include "../Movement/SteeringComponentLozanoMiguel.h"
+#include "../BlackBoard/BBKeysLozanoMiguel.h"
+#include "../StudentPerceptor/StudentPerceptorLozanoMiguel.h"
 #include "Common/InventoryComponent.h"
 #include "Items/BaseItem.h"
 #include "Items/ItemType.h"
@@ -17,15 +17,15 @@
 #include "CollisionQueryParams.h"
 
 
-UCombatState::UCombatState()
-	: UStateBase()
+UCombatStateLozanoMiguel::UCombatStateLozanoMiguel()
+	: UStateBaseLozanoMiguel()
 {
 }
 
-void UCombatState::OnInit()
+void UCombatStateLozanoMiguel::OnInit()
 {
-	SteeringComponent = GetSibling<USteeringComponent>();
-	Memory            = GetSibling<UStudentPerceptor>();
+	SteeringComponent = GetSibling<USteeringComponentLozanoMiguel>();
+	Memory            = GetSibling<UStudentPerceptorLozanoMiguel>();
 	Inventory         = GetSibling<UInventoryComponent>();
 
 	static const TCHAR* PistolPath   = TEXT("/LozanoMiguelZombie/Sounds/Pistol.Pistol");
@@ -44,16 +44,16 @@ void UCombatState::OnInit()
 	if (!m_EmptyGunSound) UE_LOG(LogTemp, Error, TEXT("[Combat] Failed to load empty-gun sound at '%s'."), EmptyGunPath);
 }
 
-void UCombatState::OnEnter_Implementation(AActor* Owner)
+void UCombatStateLozanoMiguel::OnEnter_Implementation(AActor* Owner)
 {
 	UE_LOG(LogTemp, Warning, TEXT("UCombat State OnEnter"));
-	
-	if (ABaseItem * Item = Cast<ABaseItem>(FSM->Blackboard->GetValueAsObject(BBKeys::bItem)))
+
+	if (ABaseItem * Item = Cast<ABaseItem>(FSM->Blackboard->GetValueAsObject(BBKeysLozanoMiguel::bItem)))
 	{
-		FInterestPoint Probe;
+		FInterestPointLozanoMiguel Probe;
 		Probe.Actor = Item;
 		auto Index  = Memory->m_WannaPointsInBrain.Find(Probe);
-		
+
 		bool Exists = Memory->m_WannaPointsInBrain.IsValidIndex(Index);
 		if (Exists)
 		{
@@ -62,7 +62,7 @@ void UCombatState::OnEnter_Implementation(AActor* Owner)
 	}
 	if (FSM.IsValid() && FSM->Blackboard.IsValid())
 	{
-		FSM->Blackboard->SetValueAsBool(BBKeys::bThreatGone, false);
+		FSM->Blackboard->SetValueAsBool(BBKeysLozanoMiguel::bThreatGone, false);
 	}
 	if (SteeringComponent.IsValid()) SteeringComponent->StopMoving();
 	if (SteeringComponent.IsValid()) SteeringComponent->SetRotate(false);
@@ -70,16 +70,15 @@ void UCombatState::OnEnter_Implementation(AActor* Owner)
 	m_CurrentTarget.Reset();
 }
 
-bool UCombatState::HandleShooting(AActor* Owner, ABaseZombie* Target, bool IsFacingTarget)
+bool UCombatStateLozanoMiguel::HandleShooting(AActor* Owner, ABaseZombie* Target, bool IsFacingTarget)
 {
 	if (IsFacingTarget && m_CanShoot)
 	{
 		const TArray<int32> WeaponSlots = FindWeaponSlots();
 		if (WeaponSlots.IsEmpty())
 		{
-			// Fall back to a remembered weapon if any.
 			m_ClosestWeaponInMemory.Reset();
-			if (FInterestPoint * WeaponIP = Memory->GetClosestWeaponInMemory())
+			if (FInterestPointLozanoMiguel * WeaponIP = Memory->GetClosestWeaponInMemory())
 			{
 				m_ClosestWeaponInMemory = Cast<ABaseItem>(WeaponIP->Actor.Get());
 			}
@@ -91,7 +90,7 @@ bool UCombatState::HandleShooting(AActor* Owner, ABaseZombie* Target, bool IsFac
 			}
 			else
 			{
-				FSM->Blackboard->SetValueAsBool(BBKeys::bShouldSuicide, true);
+				FSM->Blackboard->SetValueAsBool(BBKeysLozanoMiguel::bShouldSuicide, true);
 				UE_LOG(LogTemp, Warning, TEXT("[Combat] Weapons are not available Suiciding."));
 			}
 			return true;
@@ -115,9 +114,9 @@ bool UCombatState::HandleShooting(AActor* Owner, ABaseZombie* Target, bool IsFac
 				Inventory->RemoveItem(Slot);
 				PlayEmptyWeaponSound();
 				GetWorld()->GetTimerManager().SetTimer(
-					m_OhShitSounds, this, &UCombatState::PlayOhShitSound, 0.3f, false);
+					m_OhShitSounds, this, &UCombatStateLozanoMiguel::PlayOhShitSound, 0.3f, false);
 				GetWorld()->GetTimerManager().SetTimer(
-					m_ResetShootingFlag, this, &UCombatState::ResetShootFlag, 0.6f, false);
+					m_ResetShootingFlag, this, &UCombatStateLozanoMiguel::ResetShootFlag, 0.6f, false);
 			}
 			else
 			{
@@ -127,7 +126,7 @@ bool UCombatState::HandleShooting(AActor* Owner, ABaseZombie* Target, bool IsFac
 				PlayWeaponSound(Owner, WeaponItem);
 				DrawWeaponTrace(Owner, WeaponItem);
 				GetWorld()->GetTimerManager().SetTimer(
-					m_ResetShootingFlag, this, &UCombatState::ResetShootFlag, 0.3f, false);
+					m_ResetShootingFlag, this, &UCombatStateLozanoMiguel::ResetShootFlag, 0.3f, false);
 				int value = WeaponItem->GetValue();
 				UE_LOG(LogTemp, Warning, TEXT(" VALUE IS : %d"), value)
 			}
@@ -137,11 +136,10 @@ bool UCombatState::HandleShooting(AActor* Owner, ABaseZombie* Target, bool IsFac
 	return false;
 }
 
-void UCombatState::OnTick_Implementation(float DeltaTime, AActor* Owner)
+void UCombatStateLozanoMiguel::OnTick_Implementation(float DeltaTime, AActor* Owner)
 {
 	if (!Owner || !Memory.IsValid()) return;
 
-	// Still On Combat — chasing a remembered weapon.
 	if (m_OnDangerSearchingOldWeapon)
 	{
 		if (m_ClosestWeaponInMemory.IsValid())
@@ -158,7 +156,7 @@ void UCombatState::OnTick_Implementation(float DeltaTime, AActor* Owner)
 		if (!TM.IsTimerActive(m_NoMoreZombiesAroundTimer))
 		{
 			TM.SetTimer(m_NoMoreZombiesAroundTimer, this,
-				&UCombatState::GoBackToWander, 1.f, false);
+				&UCombatStateLozanoMiguel::GoBackToWander, 1.f, false);
 		}
 	}
 	else
@@ -174,33 +172,31 @@ void UCombatState::OnTick_Implementation(float DeltaTime, AActor* Owner)
 	if (HandleShooting(Owner, Target, IsFacingTarget)) return;
 }
 
-void UCombatState::PlayOhShitSound()
+void UCombatStateLozanoMiguel::PlayOhShitSound()
 {
 	AActor* Owner = GetOwnerActor();
 	if (!Owner || !m_PanicSound) return;
 	UGameplayStatics::PlaySoundAtLocation(Owner, m_PanicSound, Owner->GetActorLocation());
 }
 
-void UCombatState::PlayEmptyWeaponSound()
+void UCombatStateLozanoMiguel::PlayEmptyWeaponSound()
 {
 	AActor* Owner = GetOwnerActor();
 	if (!Owner || !m_EmptyGunSound) return;
 	UGameplayStatics::PlaySoundAtLocation(Owner, m_EmptyGunSound, Owner->GetActorLocation());
 }
 
-void UCombatState::ResetShootFlag()
+void UCombatStateLozanoMiguel::ResetShootFlag()
 {
 	m_CanShoot = true;
 }
 
-void UCombatState::GoBackToWander()
+void UCombatStateLozanoMiguel::GoBackToWander()
 {
-	FSM->Blackboard->SetValueAsBool(BBKeys::bThreatGone, true);
+	FSM->Blackboard->SetValueAsBool(BBKeysLozanoMiguel::bThreatGone, true);
 }
 
-// ---- Helpers ---------------------------------------------------------------
-
-ABaseZombie* UCombatState::PickClosestZombie(
+ABaseZombie* UCombatStateLozanoMiguel::PickClosestZombie(
 	const TArray<ABaseZombie*>& Zombies, AActor* Owner) const
 {
 	if (Zombies.IsEmpty() || !Owner) return nullptr;
@@ -221,7 +217,7 @@ ABaseZombie* UCombatState::PickClosestZombie(
 	return Closest;
 }
 
-TArray<int32> UCombatState::FindWeaponSlots() const
+TArray<int32> UCombatStateLozanoMiguel::FindWeaponSlots() const
 {
 	TArray<int32> Slots;
 	if (!Inventory.IsValid()) return Slots;
@@ -239,7 +235,7 @@ TArray<int32> UCombatState::FindWeaponSlots() const
 	return Slots;
 }
 
-bool UCombatState::FaceTarget(float Dt, AActor* Owner, AActor* Threat) const
+bool UCombatStateLozanoMiguel::FaceTarget(float Dt, AActor* Owner, AActor* Threat) const
 {
 	if (!Owner || !Threat) return false;
 	const FVector ToTarget =
@@ -258,7 +254,7 @@ bool UCombatState::FaceTarget(float Dt, AActor* Owner, AActor* Threat) const
 	return DeltaYaw <= 2.0f;
 }
 
-void UCombatState::OnExit_Implementation(AActor* Owner)
+void UCombatStateLozanoMiguel::OnExit_Implementation(AActor* Owner)
 {
 	ResetShootFlag();
 	m_CurrentTarget.Reset();
@@ -267,7 +263,7 @@ void UCombatState::OnExit_Implementation(AActor* Owner)
 }
 
 
-void UCombatState::DrawWeaponTrace(AActor* Owner, ABaseItem* WeaponItem) const
+void UCombatStateLozanoMiguel::DrawWeaponTrace(AActor* Owner, ABaseItem* WeaponItem) const
 {
 	if (!Owner || !WeaponItem) return;
 	UWorld* W = Owner->GetWorld();
@@ -321,7 +317,7 @@ void UCombatState::DrawWeaponTrace(AActor* Owner, ABaseItem* WeaponItem) const
 	}
 }
 
-void UCombatState::PlayWeaponSound(AActor* Owner, ABaseItem* WeaponItem) const
+void UCombatStateLozanoMiguel::PlayWeaponSound(AActor* Owner, ABaseItem* WeaponItem) const
 {
 	if (!Owner || !WeaponItem) return;
 

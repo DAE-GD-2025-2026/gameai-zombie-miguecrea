@@ -1,18 +1,18 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "StateBase.h"
-#include "SuicideState.generated.h"
+#include "StateBaseLozanoMiguel.h"
+#include "SuicideStateLozanoMiguel.generated.h"
 
-class USteeringComponent;
+class USteeringComponentLozanoMiguel;
 class USoundBase;
 
 UCLASS()
-class LOZANOMIGUELZOMBIERUNTIME_API USuicideState : public UStateBase
+class LOZANOMIGUELZOMBIERUNTIME_API USuicideStateLozanoMiguel : public UStateBaseLozanoMiguel
 {
 	GENERATED_BODY()
 public:
-	USuicideState();
+	USuicideStateLozanoMiguel();
 protected:
 	virtual void OnInit() override;
 	virtual void OnEnter_Implementation(AActor * Owner) override;
@@ -36,5 +36,5 @@ protected:
 	UPROPERTY()
 	TObjectPtr<USoundBase> m_TickBombSound = nullptr;
 
-	TWeakObjectPtr<USteeringComponent> SteeringComponent;
+	TWeakObjectPtr<USteeringComponentLozanoMiguel> SteeringComponent;
 };

@@ -4,24 +4,24 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
-#include "SpectatorFollowComponent.generated.h"
+#include "SpectatorFollowComponentLozanoMiguel.generated.h"
 
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
-class LOZANOMIGUELZOMBIERUNTIME_API USpectatorFollowComponent : public UActorComponent
+class LOZANOMIGUELZOMBIERUNTIME_API USpectatorFollowComponentLozanoMiguel : public UActorComponent
 {
 	GENERATED_BODY()
 
 public:
 	// Sets default values for this component's properties
-	USpectatorFollowComponent();
+	USpectatorFollowComponentLozanoMiguel();
 
 protected:
 	// Called when the game starts
 	virtual void BeginPlay() override;
-	
+
 	void CheckParent();
-	
+
 	AActor * m_Owner;
 	AActor * m_FollowPawn;
 	bool m_Detached = false;

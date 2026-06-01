@@ -6,7 +6,7 @@
 #include "Components/ActorComponent.h"
 #include "AITypes.h"
 #include "Navigation/PathFollowingComponent.h"
-#include "SteeringComponent.generated.h"
+#include "SteeringComponentLozanoMiguel.generated.h"
 
 class ASurvivorAIController;
 
@@ -14,24 +14,24 @@ class ASurvivorAIController;
 // bSucceeded is true only for EPathFollowingResult::Success — states that
 // care about the difference between success / blocked / aborted can handle
 // it themselves; most just want "are we done?"
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnSteeringMoveCompleted,EPathFollowingResult::Type,WhatHappened);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnSteeringMoveCompletedLozanoMiguel,EPathFollowingResult::Type,WhatHappened);
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
-class LOZANOMIGUELZOMBIERUNTIME_API USteeringComponent : public UActorComponent
+class LOZANOMIGUELZOMBIERUNTIME_API USteeringComponentLozanoMiguel : public UActorComponent
 {
 	GENERATED_BODY()
 
 public:
 	// Sets default values for this component's properties
-	USteeringComponent();
+	USteeringComponentLozanoMiguel();
 	void Move(const FVector & ToLocation);
 
 	// Bind in your state's OnEnter, RemoveDynamic in OnExit.
 	UPROPERTY(BlueprintAssignable, Category = "Steering")
-	FOnSteeringMoveCompleted OnMoveCompleted;
+	FOnSteeringMoveCompletedLozanoMiguel OnMoveCompleted;
 
-	
-	
+
+
 	void SetRotate(bool Rotate);
 protected:
 	virtual void BeginPlay() override;
@@ -51,11 +51,11 @@ protected:
 	ASurvivorAIController * m_AIController = nullptr;
 	APawn * m_PawnOwner = nullptr;
 	FNavPathSharedPtr  m_NavPath;
-	
-	
+
+
 	UPROPERTY(VisibleAnywhere, Category = "Steering")
 	bool m_Rotate  = true;
-	
+
 	UPROPERTY(EditAnywhere, Category = "Steering")
 	float m_ManualRotationSpeed = 180.f;
 

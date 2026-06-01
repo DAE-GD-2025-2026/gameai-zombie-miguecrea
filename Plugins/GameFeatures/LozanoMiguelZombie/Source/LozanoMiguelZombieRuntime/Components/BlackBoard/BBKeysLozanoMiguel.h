@@ -6,14 +6,14 @@
 // `inline const` (C++17) means each key has exactly one definition across
 // the whole module even though this header is included many places.
 
-namespace BBKeys
+namespace BBKeysLozanoMiguel
 {
 	// ---- Movement / destinations ------------------------------------------
 	inline const FName CurrentDestination(TEXT("CurrentDestination"));
 
 	
 	
-	// ---- Perception flags (set by UStudentPerceptor) ----------------------
+	// ---- Perception flags (set by UStudentPerceptorLozanoMiguel) ----------
 	inline const FName bArrivedAtInterestPoint (TEXT("bArrivedAtInterestPoint"));
 	inline const FName bLootDone      (TEXT("bLootDone"));
 	inline const FName bItem      (TEXT("bItem"));

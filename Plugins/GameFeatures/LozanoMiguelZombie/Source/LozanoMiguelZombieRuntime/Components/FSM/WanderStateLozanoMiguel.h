@@ -1,25 +1,25 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "StateBase.h"
-#include "InterestPoint.h"
-#include "ReasonToMove.h"
-#include "WanderState.generated.h"
+#include "StateBaseLozanoMiguel.h"
+#include "InterestPointLozanoMiguel.h"
+#include "ReasonToMoveLozanoMiguel.h"
+#include "WanderStateLozanoMiguel.generated.h"
 
 namespace EPathFollowingResult
 {
 	enum Type : int;
 }
 
-class UStudentPerceptor;
-class USteeringComponent;
+class UStudentPerceptorLozanoMiguel;
+class USteeringComponentLozanoMiguel;
 
 UCLASS()
-class LOZANOMIGUELZOMBIERUNTIME_API UWanderState : public UStateBase
+class LOZANOMIGUELZOMBIERUNTIME_API UWanderStateLozanoMiguel : public UStateBaseLozanoMiguel
 {
 	GENERATED_BODY()
 public:
-	UWanderState();
+	UWanderStateLozanoMiguel();
 
 protected:
 	virtual void OnInit() override;
@@ -29,13 +29,8 @@ protected:
 	virtual void OnExit_Implementation(AActor * Owner) override;
 
 
-	EReasonToMove m_ReasonToMove;
+	EReasonToMoveLozanoMiguel m_ReasonToMove;
 
-	// Weak ref to the AActor we picked as our current interest target.
-	// We store the actor (which lives in its own memory) rather than a
-	// FInterestPoint* (which points INTO the perceptor's TArray and would
-	// dangle the moment that array reallocates on AddUnique).
-	// IsValid() returns false if the actor is destroyed mid-chase.
 	TWeakObjectPtr<AActor> m_BestInterestActor;
 
 	bool m_GoingToPatrolPoint = false;
@@ -57,11 +52,9 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category="Wander")
 	float ArrivalDistance = 150.f;
 
-	// Re-evaluate the chosen target every N seconds while wandering.
 	UPROPERTY(EditDefaultsOnly, Category="Wander")
 	float RepickInterval = 3.f;
 
-	// Name of the blackboard Vector key Wander writes its destination to.
 	UPROPERTY(EditDefaultsOnly, Category="Wander")
 	FName DestinationKey;
 
@@ -79,8 +72,8 @@ private:
 	float  ChangeMindTime   = 0.25f;
 	FVector CurrentDestination = FVector::ZeroVector;
 
-	TWeakObjectPtr<UStudentPerceptor>  Memory;
-	TWeakObjectPtr<USteeringComponent> Steering;
+	TWeakObjectPtr<UStudentPerceptorLozanoMiguel>  Memory;
+	TWeakObjectPtr<USteeringComponentLozanoMiguel> Steering;
 
 	void BuildPatrolGrid();
 	void PickNewTarget(AActor* Owner);

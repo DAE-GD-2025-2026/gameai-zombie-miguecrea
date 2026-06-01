@@ -1,6 +1,6 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
+// Fill out your copyright notice in the Description page of Project Settings.
 
-#include "StudentPerceptor.h"
+#include "StudentPerceptorLozanoMiguel.h"
 #include "Survivor/SurvivorPawn.h"
 #include "Perception/AIPerceptionComponent.h"
 #include "Perception/AISense_Sight.h"
@@ -18,38 +18,38 @@
 #include "AIController.h"
 #include "BehaviorTree/BlackboardComponent.h"
 #include "GameFramework/Pawn.h"
-#include "../BlackBoard/BBKeys.h"
+#include "../BlackBoard/BBKeysLozanoMiguel.h"
 #include "Perception/AIPerceptionStimuliSourceComponent.h"
 #include "EngineUtils.h" // TActorIterator
 #include "Kismet/GameplayStatics.h"
 #include "PurgeZones/PurgeZone.h"
 
 
-UStudentPerceptor::UStudentPerceptor()
+UStudentPerceptorLozanoMiguel::UStudentPerceptorLozanoMiguel()
 {
 	PrimaryComponentTick.bCanEverTick = true;
 }
 
-void UStudentPerceptor::BeginPlay()
+void UStudentPerceptorLozanoMiguel::BeginPlay()
 {
 	Super::BeginPlay();
 	if (UWorld* W = GetWorld())
 	{
 		W->GetTimerManager().SetTimerForNextTick(
-			FTimerDelegate::CreateUObject(this, &UStudentPerceptor::DeferredInit));
+			FTimerDelegate::CreateUObject(this, &UStudentPerceptorLozanoMiguel::DeferredInit));
 	}
 
 	FTimerHandle TimerHandle;
 	GetWorld()->GetTimerManager().SetTimer(
 		TimerHandle,
 		this,
-		&UStudentPerceptor::ChangeColor,
+		&UStudentPerceptorLozanoMiguel::ChangeColor,
 		0.1f,
 		true
 	);
 }
 
-void UStudentPerceptor::DeferredInit()
+void UStudentPerceptorLozanoMiguel::DeferredInit()
 {
 	AActor* Owner = GetOwner();
 	if (!Owner) return;
@@ -67,9 +67,9 @@ void UStudentPerceptor::DeferredInit()
 	if (m_PerceptionComponent)
 	{
 		m_PerceptionComponent->OnTargetPerceptionUpdated.AddUniqueDynamic(
-			this, &UStudentPerceptor::OnPerceptionUpdated);
+			this, &UStudentPerceptorLozanoMiguel::OnPerceptionUpdated);
 		m_PerceptionComponent->OnTargetPerceptionForgotten.AddUniqueDynamic(
-			this, &UStudentPerceptor::OnTargetForgotten);
+			this, &UStudentPerceptorLozanoMiguel::OnTargetForgotten);
 	}
 	else
 	{
@@ -77,7 +77,7 @@ void UStudentPerceptor::DeferredInit()
 	}
 }
 
-void UStudentPerceptor::TickComponent(float DeltaTime, ELevelTick TickType,
+void UStudentPerceptorLozanoMiguel::TickComponent(float DeltaTime, ELevelTick TickType,
                                       FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
@@ -96,7 +96,7 @@ void UStudentPerceptor::TickComponent(float DeltaTime, ELevelTick TickType,
 		}
 		else if (m_bWasStaminaLow && S >= StaminaLowExit)
 		{
-			m_bWasStaminaLow = false; 
+			m_bWasStaminaLow = false;
 		}
 	}
 
@@ -115,7 +115,7 @@ void UStudentPerceptor::TickComponent(float DeltaTime, ELevelTick TickType,
 		}
 	}
 
-	for (const FInterestPoint& InterestPoint : m_WannaPointsInBrain)
+	for (const FInterestPointLozanoMiguel& InterestPoint : m_WannaPointsInBrain)
 	{
 		AActor* A = InterestPoint.Actor.Get();
 		if (A && CurrentColor)
@@ -132,7 +132,7 @@ void UStudentPerceptor::TickComponent(float DeltaTime, ELevelTick TickType,
 	}
 }
 
-void UStudentPerceptor::OnPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus)
+void UStudentPerceptorLozanoMiguel::OnPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus)
 {
 	if (Stimulus.Type != UAISense::GetSenseID<UAISense_Sight>())
 		return;
@@ -145,16 +145,16 @@ void UStudentPerceptor::OnPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus)
 		ABaseItem* Item = Cast<ABaseItem>(Actor);
 		if (Item && Item->GetItemType() == EItemType::Garbage) return;
 
-		FInterestPoint InterestPoint;
+		FInterestPointLozanoMiguel InterestPoint;
 		InterestPoint.Actor = Actor;
 		InterestPoint.m_Visited = false;
 		m_WannaPointsInBrain.AddUnique(InterestPoint);
 	}
 }
 
-void UStudentPerceptor::OnTargetForgotten(AActor* Actor)
+void UStudentPerceptorLozanoMiguel::OnTargetForgotten(AActor* Actor)
 {
-	// when Stimuli expired age is 5 seconds will forget after 5 seconds 
+	// when Stimuli expired age is 5 seconds will forget after 5 seconds
 	UE_LOG(LogTemp, Error, TEXT("Target Forgotten"))
 	if (ABaseZombie* Z = Cast<ABaseZombie>(Actor))
 	{
@@ -163,9 +163,9 @@ void UStudentPerceptor::OnTargetForgotten(AActor* Actor)
 }
 
 
-FInterestPoint * UStudentPerceptor::GetBestInterestPoint()
+FInterestPointLozanoMiguel * UStudentPerceptorLozanoMiguel::GetBestInterestPoint()
 {
-	FInterestPoint* BestInterestPoint = nullptr;
+	FInterestPointLozanoMiguel* BestInterestPoint = nullptr;
 
 	if (m_WannaPointsInBrain.IsEmpty())
 		return nullptr;
@@ -174,7 +174,7 @@ FInterestPoint * UStudentPerceptor::GetBestInterestPoint()
 	const FVector MyLoc = OwnerActor ? OwnerActor->GetActorLocation() : FVector::ZeroVector;
 
 	float BestScore = 0.f;
-	for (FInterestPoint & InterestPoint : m_WannaPointsInBrain)
+	for (FInterestPointLozanoMiguel & InterestPoint : m_WannaPointsInBrain)
 	{
 		if (InterestPoint.m_Visited)
 			continue;
@@ -213,12 +213,12 @@ FInterestPoint * UStudentPerceptor::GetBestInterestPoint()
 }
 
 
-void UStudentPerceptor::MarkVisited(AActor* Target)
+void UStudentPerceptorLozanoMiguel::MarkVisited(AActor* Target)
 {
 	if (!Target) return;
 	// Iterate by reference and modify in place — safe because we use IP
 	// immediately and don't store a pointer that could survive a realloc.
-	for (FInterestPoint & IP : m_WannaPointsInBrain)
+	for (FInterestPointLozanoMiguel & IP : m_WannaPointsInBrain)
 	{
 		if (IP.Actor == Target)
 		{
@@ -229,7 +229,7 @@ void UStudentPerceptor::MarkVisited(AActor* Target)
 }
 
 
-FInterestPoint * UStudentPerceptor::GetClosestWeaponInMemory()
+FInterestPointLozanoMiguel * UStudentPerceptorLozanoMiguel::GetClosestWeaponInMemory()
 {
 	// Scan m_WannaPointsInBrain for the closest unvisited weapon (Pistol or
 	// Shotgun). Returns nullptr if memory holds no weapons or none are
@@ -240,10 +240,10 @@ FInterestPoint * UStudentPerceptor::GetClosestWeaponInMemory()
 	const FVector MyLoc =
 		OwnerActor ? OwnerActor->GetActorLocation() : FVector::ZeroVector;
 
-	FInterestPoint* Closest = nullptr;
+	FInterestPointLozanoMiguel* Closest = nullptr;
 	float ClosestDistSq     = TNumericLimits<float>::Max();
 
-	for (FInterestPoint& IP : m_WannaPointsInBrain)
+	for (FInterestPointLozanoMiguel& IP : m_WannaPointsInBrain)
 	{
 		if (IP.m_Visited) continue;
 
@@ -270,7 +270,7 @@ FInterestPoint * UStudentPerceptor::GetClosestWeaponInMemory()
 }
 
 
-float UStudentPerceptor::GetItemBaseUtility(EItemType type)
+float UStudentPerceptorLozanoMiguel::GetItemBaseUtility(EItemType type)
 {
 	switch (type)
 	{
@@ -282,12 +282,12 @@ float UStudentPerceptor::GetItemBaseUtility(EItemType type)
 	}
 }
 
-float UStudentPerceptor::GetHouseBaseUtility()
+float UStudentPerceptorLozanoMiguel::GetHouseBaseUtility()
 {
 	return 5.f;
 }
 
-float UStudentPerceptor::ApplyContextModifier(float base, const EItemType& ItemType)
+float UStudentPerceptorLozanoMiguel::ApplyContextModifier(float base, const EItemType& ItemType)
 {
 	if (!m_Health || !m_Stamina)
 	{
@@ -314,7 +314,7 @@ float UStudentPerceptor::ApplyContextModifier(float base, const EItemType& ItemT
 	return score;
 }
 
-bool UStudentPerceptor::SurvivorHasWeapon() const
+bool UStudentPerceptorLozanoMiguel::SurvivorHasWeapon() const
 {
 	if (!m_Inventory) return false;
 
@@ -330,7 +330,7 @@ bool UStudentPerceptor::SurvivorHasWeapon() const
 	return false;
 }
 
-void UStudentPerceptor::ChangeColor()
+void UStudentPerceptorLozanoMiguel::ChangeColor()
 {
 	if (CurrentColor)
 	{
@@ -346,7 +346,7 @@ void UStudentPerceptor::ChangeColor()
 }
 
 
-TArray<ABaseZombie*> UStudentPerceptor::GetVisibleZombies()
+TArray<ABaseZombie*> UStudentPerceptorLozanoMiguel::GetVisibleZombies()
 {
 	TArray<ABaseZombie*> Result;
 	Result.Reserve(m_VisibleZombies.Num());
@@ -365,12 +365,12 @@ TArray<ABaseZombie*> UStudentPerceptor::GetVisibleZombies()
 	return Result;
 }
 
-void UStudentPerceptor::ForgetInterestPoints(const FInterestPoint& InterestPoint)
+void UStudentPerceptorLozanoMiguel::ForgetInterestPoints(const FInterestPointLozanoMiguel& InterestPoint)
 {
 	m_WannaPointsInBrain.Remove(InterestPoint);
 }
 
-UBlackboardComponent* UStudentPerceptor::GetBlackboard() const
+UBlackboardComponent* UStudentPerceptorLozanoMiguel::GetBlackboard() const
 {
 	APawn* Pawn = Cast<APawn>(GetOwner());
 	if (!Pawn) return nullptr;
@@ -378,7 +378,7 @@ UBlackboardComponent* UStudentPerceptor::GetBlackboard() const
 	return AI ? AI->GetBlackboardComponent() : nullptr;
 }
 
-void UStudentPerceptor::LogUnperceivedZombies() const
+void UStudentPerceptorLozanoMiguel::LogUnperceivedZombies() const
 {
 	UWorld* W = GetWorld();
 	if (!W) return;
@@ -467,16 +467,16 @@ void UStudentPerceptor::LogUnperceivedZombies() const
 	}
 }
 
-void UStudentPerceptor::Suicide()
+void UStudentPerceptorLozanoMiguel::Suicide()
 {
 	if (UBlackboardComponent* BB = GetBlackboard())
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Suiciding"))
-		BB->SetValueAsBool(BBKeys::bShouldSuicide, true);
+		BB->SetValueAsBool(BBKeysLozanoMiguel::bShouldSuicide, true);
 	}
 }
 
-void UStudentPerceptor::UpdatePurgeZoneFlag()
+void UStudentPerceptorLozanoMiguel::UpdatePurgeZoneFlag()
 {
 	UBlackboardComponent* BB = GetBlackboard();
 	if (!BB) return;
@@ -485,7 +485,7 @@ void UStudentPerceptor::UpdatePurgeZoneFlag()
 	AActor* OwnerActor = GetOwner();
 	if (!W || !OwnerActor)
 	{
-		BB->SetValueAsBool(BBKeys::bPurgeZoneNearby, false);
+		BB->SetValueAsBool(BBKeysLozanoMiguel::bPurgeZoneNearby, false);
 		return;
 	}
 
@@ -495,7 +495,7 @@ void UStudentPerceptor::UpdatePurgeZoneFlag()
 	// exit-buffer before clearing. If we're not flagged, the smaller
 	// enter-buffer triggers the flag. The gap between them is what stops
 	// Flee↔Wander bouncing at the boundary.
-	const bool bWasInDanger = BB->GetValueAsBool(BBKeys::bPurgeZoneNearby);
+	const bool bWasInDanger = BB->GetValueAsBool(BBKeysLozanoMiguel::bPurgeZoneNearby);
 	const float ActiveBuffer = bWasInDanger ? PurgeZoneExitBuffer : PurgeZoneEnterBuffer;
 
 	bool bAnyInRange = false;
@@ -521,10 +521,10 @@ void UStudentPerceptor::UpdatePurgeZoneFlag()
 		}
 	}
 
-	BB->SetValueAsBool(BBKeys::bPurgeZoneNearby, bAnyInRange);
+	BB->SetValueAsBool(BBKeysLozanoMiguel::bPurgeZoneNearby, bAnyInRange);
 }
 
-void UStudentPerceptor::AddZombiesToMemory()
+void UStudentPerceptorLozanoMiguel::AddZombiesToMemory()
 {
 	UWorld* W = GetWorld();
 	if (!W) return;
@@ -539,7 +539,7 @@ void UStudentPerceptor::AddZombiesToMemory()
 		DRAW_CIRCLE(GetWorld(), Zombie->GetActorLocation(), 30.f, FColor::Emerald, 3.f);
 	}
 
-	//  if there is a wall 
+	//  if there is a wall
 	const FVector MyLoc = OwnerActor->GetActorLocation();
 	float DetectionRadiusSq = m_EnemyDetectionRadius * m_EnemyDetectionRadius;
 
@@ -556,13 +556,13 @@ void UStudentPerceptor::AddZombiesToMemory()
 			bAnyZombieInRange = true;
 			UBlackboardComponent* BB = GetBlackboard();
 
-			if (!BB->GetValueAsBool(BBKeys::bShouldSuicide))
+			if (!BB->GetValueAsBool(BBKeysLozanoMiguel::bShouldSuicide))
 			{
-				BB->SetValueAsBool(BBKeys::bThreatNearby, true);
+				BB->SetValueAsBool(BBKeysLozanoMiguel::bThreatNearby, true);
 			}
 			else
 			{
-				//Suicide is the end makes no sense to make Any calculations of enemies 
+				//Suicide is the end makes no sense to make Any calculations of enemies
 				return;
 			}
 		}

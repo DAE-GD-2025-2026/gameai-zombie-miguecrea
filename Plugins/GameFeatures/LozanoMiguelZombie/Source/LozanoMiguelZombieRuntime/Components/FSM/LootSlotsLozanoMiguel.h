@@ -5,7 +5,7 @@
 #include "Items/BaseItem.h"
 
 
-namespace LootSlots
+namespace LootSlotsLozanoMiguel
 {
 	constexpr int32 WeaponMin = 0;
 	constexpr int32 WeaponMax = 1;
