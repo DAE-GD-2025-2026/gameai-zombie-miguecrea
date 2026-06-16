@@ -26,7 +26,5 @@ void APistol::UseItem(ASurvivorPawn& Survivor)
 	{
 		HitPawn->TakeDamage(Damage, FDamageEvent{}, Survivor.GetController(), &Survivor);
 	}
-	
-	// TODO hitting & missing score
 }
 
